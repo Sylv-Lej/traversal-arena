@@ -128,7 +128,10 @@ async def submit(owner: Player, name: str, wasm_b64: str) -> dict:
         raise ArenaError(413, "Fichier trop gros (1 Mo au plus).")
     if wasm[:4] != b"\0asm":
         raise ArenaError(422, "Ce n'est pas un module WebAssembly (.wasm).")
-    if not await limits.hit(f"arena-upload:{owner.id}", UPLOADS_PER_DAY, 86400):
+    # Seuls les envois acceptés comptent : un refus (nom pris, trop de bots) ou un nouvel
+    # essai après le 429 ne mangent pas le quota.
+    upload_key = f"arena-upload:{owner.id}"
+    if await limits.count(upload_key, 86400) >= UPLOADS_PER_DAY:
         raise ArenaError(429, "Trop d'envois aujourd'hui. Réessaie demain.")
     async with store.engine.begin() as conn:
         # Un nom = un bot, d'un seul auteur (ses versions se suivent sous ce nom).
@@ -150,6 +153,7 @@ async def submit(owner: Player, name: str, wasm_b64: str) -> dict:
             id=bot_id, owner_id=owner.id, name=name, version=version + 1, status="pending",
             wasm=wasm, sha256=hashlib.sha256(wasm).hexdigest(), size=len(wasm), created_at=now))
         await conn.execute(pg_insert(db.arena_jobs).values(**_new_job("check", bot_id, "bot1")))
+    await limits.hit(upload_key, UPLOADS_PER_DAY, 86400)
     return await bot_view(bot_id)
 
 
