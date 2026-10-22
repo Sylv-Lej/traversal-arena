@@ -1,0 +1,12 @@
+[project]
+name = "traversal-rs"
+version = "0.1.0"
+requires-python = ">=3.12"
+description = "Bot Traversal en Rust (module natif du backend)."
+
+[build-system]
+requires = ["maturin>=1.7,<2"]
+build-backend = "maturin"
+
+[tool.maturin]
+module-name = "traversal_rs"

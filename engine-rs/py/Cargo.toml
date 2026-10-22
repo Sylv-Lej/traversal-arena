@@ -1,0 +1,16 @@
+[package]
+name = "traversal-rs"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+description = "Module Python `traversal_rs` : le bot Traversal en Rust, appelé par le backend."
+
+[lib]
+name = "traversal_rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+traversal-core = { path = "../core" }
+traversal-analysis = { path = "../analysis" }
+pyo3 = { version = "0.22.6", features = ["extension-module", "abi3-py312"] }

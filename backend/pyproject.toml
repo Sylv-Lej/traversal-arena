@@ -1,0 +1,27 @@
+[project]
+name = "traversal-backend"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "revkit",
+    "alembic>=1.14",
+    "argon2-cffi>=23.1",
+    "httpx>=0.27",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8.3", "httpx>=0.27", "pytest-asyncio>=0.24"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app", "migrations"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+# Un seul event loop : le backend (écoute NOTIFY, workers) est démarré une fois.
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"

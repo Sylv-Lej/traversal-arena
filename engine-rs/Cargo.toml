@@ -1,0 +1,20 @@
+[workspace]
+resolver = "2"
+members = ["core", "py", "cli", "sdk", "analysis", "bots/starter", "bots/minimal"]
+# L'arène (wasmtime, client HTTP) a son propre Cargo.lock et sa propre version de Rust :
+# elle n'alourdit ni ne contraint le module Python du backend.
+exclude = ["arena"]
+
+[workspace.package]
+# Version du SDK publié (`make sdk-push` : tag vX.Y.Z du dépôt public) : à monter avant
+# chaque publication, avec celle de la dépendance dans sdk/Cargo.toml.
+version = "0.2.0"
+edition = "2021"
+rust-version = "1.80"
+license = "MIT"
+repository = "https://github.com/Sylv-Lej/traversal-rust-sdk"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1

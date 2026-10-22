@@ -1,0 +1,71 @@
+# Dev local 100% Docker — aucun outil (node, npm, python, uvicorn) requis sur l'hôte.
+#
+#   make dev        # backend + frontend, hot-reload
+#   make dev-back   # backend seul
+#   make dev-front  # frontend seul
+#
+# DB : toujours Lampion (Postgres). DATABASE_URL est injecté par le Makefile, résolu
+# automatiquement depuis LAMPION_API_KEY (make dev/dev-back) — pas de fallback SQLite.
+# Le code est monté en volume -> hot-reload. Les node_modules / installs vivent dans
+# des volumes nommés (pas de pollution de l'hôte, install faite une seule fois).
+name: traversal
+
+services:
+  backend:
+    image: python:3.12-slim
+    working_dir: /src/backend
+    # DB Lampion obligatoire (pas de fallback SQLite), install éditable, puis uvicorn --reload.
+    # `python -m uvicorn` et pas `uvicorn` : le console script est dans /usr/local/bin,
+    # hors du volume backend-venv -> absent dès que pip saute une install déjà satisfaite.
+    command: >
+      sh -c '[ -n "$$DATABASE_URL" ] ||
+               { echo "ERREUR: DATABASE_URL vide. Lance via make dev/dev-back (résout Lampion depuis LAMPION_API_KEY dans .env.deploy)."; exit 1; };
+             pip install -q -e /src/revkit -e /src/backend &&
+             python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /src/backend --reload-dir /src/revkit --timeout-graceful-shutdown 3'
+    volumes:
+      - ./packages/revkit:/src/revkit
+      - ./backend:/src/backend
+      - backend-venv:/usr/local/lib/python3.12/site-packages
+    environment:
+      PYTHONUNBUFFERED: "1"
+      # Le navigateur ne parle jamais à l'API (il passe par la route serveur du
+      # front), donc aucune origine n'a besoin d'être autorisée.
+      FRONTEND_ORIGIN: ""
+      # Clé partagée front(serveur) <-> API. Valeur de DEV uniquement : en prod
+      # Terraform en génère une aléatoire et l'injecte en secret.
+      API_KEY: "${API_KEY:-dev-local-key-not-a-secret}"
+      # Jeton du runner de l'arène (`make arena-dev`). Valeur de DEV uniquement.
+      ARENA_TOKEN: "${ARENA_TOKEN:-dev-arena-token-not-a-secret}"
+      # Parties de l'arène consultables (1) ou résultats seuls (vide).
+      ARENA_REPLAYS: "${ARENA_REPLAYS:-}"
+      # /docs et /openapi.json : pratiques en dev, désactivés en prod.
+      EXPOSE_DOCS: "1"
+      # DB Lampion (Postgres), résolue par le Makefile. Vérifié au démarrage.
+      DATABASE_URL: "${DATABASE_URL:-}"
+    ports:
+      - "8000:8000"
+
+  frontend:
+    image: node:22-slim
+    working_dir: /app
+    # Install des deps au 1er démarrage, puis next dev.
+    command: sh -c "npm install && npm run dev -- -H 0.0.0.0"
+    volumes:
+      - ./frontend:/app
+      # node_modules dans des volumes nommés : ne clobbe pas l'hôte, persiste entre runs.
+      - frontend-node-modules:/app/node_modules
+      - frontend-next:/app/.next
+    environment:
+      # Variables SERVEUR (pas de préfixe NEXT_PUBLIC_) : elles ne descendent jamais
+      # au navigateur. Le front appelle l'API de container à container.
+      API_URL: "http://backend:8000"
+      # Site complet (1) ou arène seule (vide), voir frontend/lib/site.ts.
+      FULL_SITE: "${FULL_SITE:-}"
+      API_KEY: "${API_KEY:-dev-local-key-not-a-secret}"
+    ports:
+      - "3000:3000"
+
+volumes:
+  backend-venv:
+  frontend-node-modules:
+  frontend-next:

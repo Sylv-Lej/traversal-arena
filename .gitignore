@@ -1,0 +1,38 @@
+# MD
+PLAN.MD
+SCALING.MD
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+local.db
+uploads/
+
+# Node
+node_modules/
+.next/
+out/
+npm-debug.log*
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
+
+# Env / secrets
+.env
+.env.local
+.env.deploy
+*.pem
+
+# TypeScript (cache de `tsc --incremental`)
+*.tsbuildinfo
+
+# Rust
+**/target/

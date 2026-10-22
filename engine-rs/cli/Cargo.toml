@@ -1,0 +1,15 @@
+[package]
+name = "traversal-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+description = "Simulations Traversal : tournois entre niveaux de bot, mesure de vitesse."
+
+[[bin]]
+name = "traversal-cli"
+path = "src/main.rs"
+
+[dependencies]
+traversal-core = { path = "../core" }
+serde_json = "1.0.133"

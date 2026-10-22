@@ -1,0 +1,88 @@
+// Textes : connexion, inscription, mot de passe (changement, oubli, réinitialisation).
+// Le français est la référence ; l'anglais a les mêmes clés.
+
+const fr = {
+  // Connexion / inscription
+  loggedIn: "Connecté",
+  loggedInAs: "Tu es connecté en tant que",
+  logIn: "Se connecter",
+  logOut: "Se déconnecter",
+  createAccount: "Créer un compte",
+  createMyAccount: "Créer mon compte",
+  guestNoticeBefore: "Tu joues en ce moment en invité sous le nom",
+  guestNoticeAfter:
+    ". Crée ton compte pour garder ce pseudo, tes parties et ton classement, et les retrouver sur tous tes appareils.",
+  email: "Email",
+  password: "Mot de passe",
+  minChars: "(8 caractères minimum)",
+  forgotLink: "Mot de passe oublié ?",
+  noAccount: "Pas encore de compte ? Tu peux jouer tout de suite en invité,",
+  orCreateOne: "ou en créer un",
+  // Changement de mot de passe
+  changePassword: "Changer le mot de passe",
+  passwordChanged: "Mot de passe changé. Tes autres appareils ont été déconnectés.",
+  currentPassword: "Mot de passe actuel",
+  newPassword: "Nouveau mot de passe",
+  // Réinitialisation
+  mismatch: "Les deux mots de passe ne correspondent pas.",
+  confirmation: "Confirmation",
+  saveAndLogIn: "Enregistrer et me connecter",
+  requestNewLink: "Redemander un lien",
+  forgotTitle: "Mot de passe oublié",
+  sentBefore: "Si un compte existe pour",
+  sentAfter: ", un email avec un lien de réinitialisation vient de partir. Le lien est valable 1 heure.",
+  checkSpam: "Pense à regarder dans les spams.",
+  backToLogin: "Retour à la connexion",
+  forgotIntro: "Indique l’email de ton compte : on t’envoie un lien pour choisir un nouveau mot de passe.",
+  sendLink: "Envoyer le lien",
+  // Confirmation de l'adresse
+  verifyTitle: "Confirmation de l’adresse",
+  verifying: "Confirmation en cours…",
+  verifyOk: "C’est fait : ton adresse est confirmée. Tu peux inscrire tes bots dans l’arène.",
+  verifyGo: "Inscrire un bot",
+  notVerified: (email: string) => `Confirme ton adresse pour inscrire un bot : un lien a été envoyé à ${email}.`,
+  resend: "Renvoyer l’email",
+  resent: "Email renvoyé. Le lien est valable 48 heures.",
+};
+
+const en: typeof fr = {
+  loggedIn: "Logged in",
+  loggedInAs: "You’re logged in as",
+  logIn: "Log in",
+  logOut: "Log out",
+  createAccount: "Create an account",
+  createMyAccount: "Create my account",
+  guestNoticeBefore: "You’re currently playing as a guest under the name",
+  guestNoticeAfter:
+    ". Create your account to keep this username, your games and your rating, and find them on all your devices.",
+  email: "Email",
+  password: "Password",
+  minChars: "(8 characters minimum)",
+  forgotLink: "Forgot your password?",
+  noAccount: "No account yet? You can play right away as a guest,",
+  orCreateOne: "or create one",
+  changePassword: "Change password",
+  passwordChanged: "Password changed. Your other devices have been logged out.",
+  currentPassword: "Current password",
+  newPassword: "New password",
+  mismatch: "The two passwords don’t match.",
+  confirmation: "Confirm password",
+  saveAndLogIn: "Save and log in",
+  requestNewLink: "Request a new link",
+  forgotTitle: "Forgot password",
+  sentBefore: "If an account exists for",
+  sentAfter: ", an email with a reset link is on its way. The link is valid for 1 hour.",
+  checkSpam: "Remember to check your spam folder.",
+  backToLogin: "Back to log in",
+  forgotIntro: "Enter your account’s email: we’ll send you a link to choose a new password.",
+  sendLink: "Send link",
+  verifyTitle: "Email confirmation",
+  verifying: "Confirming…",
+  verifyOk: "Done: your email address is confirmed. You can now enter your bots in the arena.",
+  verifyGo: "Enter a bot",
+  notVerified: (email: string) => `Confirm your email address to enter a bot: a link was sent to ${email}.`,
+  resend: "Resend the email",
+  resent: "Email sent again. The link is valid for 48 hours.",
+};
+
+export default { fr, en };
