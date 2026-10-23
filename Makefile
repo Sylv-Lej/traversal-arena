@@ -53,6 +53,9 @@ TF_VAR_public_url     = $(PUBLIC_URL)
 TF_VAR_mail_from      = $(MAIL_FROM)
 TF_VAR_tem_project_id = $(TEM_PROJECT_ID)
 TF_VAR_tem_secret_key = $(TEM_SECRET_KEY)
+# Compte traversalgame.com qui lit les parties à importer (page Analyse). Vide : import fermé.
+TF_VAR_traversal_login    = $(TRAVERSAL_LOGIN)
+TF_VAR_traversal_password = $(TRAVERSAL_PASSWORD)
 
 # Assure le projet Lampion (le crée via l'API si absent) et renvoie la connection string.
 # Ne dépend QUE de LAMPION_API_KEY (+ docker) : script stdlib exécuté dans un conteneur python.
@@ -84,7 +87,7 @@ TFVARS := \
 ARENA_TOKEN ?= dev-arena-token-not-a-secret
 
 # Tout ce qui touche à l'infra déployée utilise la base de PROD.
-registry plan apply offline online down destroy deploy redeploy db-prod arena-rotate-token: LAMPION_NAME = $(LAMPION_PROJECT_PROD)
+registry plan apply offline online down destroy deploy redeploy db-prod arena-rotate-token arena-round-robin-prod: LAMPION_NAME = $(LAMPION_PROJECT_PROD)
 
 .DEFAULT_GOAL := help
 
@@ -213,11 +216,25 @@ redeploy: build push apply ## Redéploie le code (utiliser TAG=$$(git rev-parse 
 	@echo "ℹ️  avec TAG=latest, Scaleway ne redéploie pas : passe un TAG unique."
 
 # --- Arène : dev local et jeton du runner ------------------------------------
-.PHONY: arena-dev arena-rotate-token
+.PHONY: arena-dev arena-rotate-token arena-round-robin arena-round-robin-prod
 arena-dev: ## Joue les parties de l'arène contre le backend local (make dev), en boucle
 	docker build -f engine-rs/arena/Dockerfile -t traversal-arena engine-rs
 	docker run --rm --add-host=host.docker.internal:host-gateway -e ARENA_TOKEN="$(ARENA_TOKEN)" \
 	  traversal-arena work --api http://host.docker.internal:8000 --forever
+
+# Round-robin : GAMES parties (pair) entre chaque paire de bots des joueurs en lice, bots
+# maison exclus, mises dans la file du runner (aucune route d'API ne le déclenche).
+# Coût : N bots -> N(N-1)/2 × GAMES parties, ≈ 5 s de vCPU chacune.
+GAMES ?= 20
+ROUND_ROBIN = docker compose run --rm --no-deps backend sh -c \
+	  'pip install -q -e /src/revkit -e /src/backend && python -m app.arena_round_robin $(GAMES)'
+
+arena-round-robin: secrets ## GAMES parties (20) entre chaque paire de bots des joueurs — base de dev
+	@set -e; $(RESOLVE_DB); export DATABASE_URL; $(ROUND_ROBIN)
+
+arena-round-robin-prod: secrets ## Idem sur la base de PROD (joué par le Job aux prochains passages)
+	@read -p "Round-robin de $(GAMES) parties par duel sur la PROD ? [o/N] " ok && [ "$$ok" = o ]
+	@set -e; $(RESOLVE_DB); export DATABASE_URL; $(ROUND_ROBIN)
 
 # Fuite (ou doute) : un nouveau jeton aléatoire est tiré et posé partout en un `apply`
 # (secret du backend, Secret Manager, référence du Job). L'ancien ne vaut plus rien dès

@@ -953,6 +953,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "traversal-analysis"
+version = "0.2.0"
+dependencies = [
+ "traversal-bot",
+]
+
+[[package]]
 name = "traversal-arena"
 version = "0.1.0"
 dependencies = [
@@ -960,9 +967,17 @@ dependencies = [
  "seccompiler",
  "serde_json",
  "sha2",
+ "traversal-analysis",
  "traversal-core",
  "ureq",
  "wasmtime",
+]
+
+[[package]]
+name = "traversal-bot"
+version = "0.2.0"
+dependencies = [
+ "traversal-core",
 ]
 
 [[package]]

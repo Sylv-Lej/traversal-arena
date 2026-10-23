@@ -40,6 +40,11 @@ services:
       ARENA_REPLAYS: "${ARENA_REPLAYS:-}"
       # /docs et /openapi.json : pratiques en dev, désactivés en prod.
       EXPOSE_DOCS: "1"
+      # Bilans par le runner local (`make arena-dev`) : ARENA_ANALYSES=1 make dev.
+      ARENA_ANALYSES: "${ARENA_ANALYSES:-}"
+      # Compte traversalgame.com pour l'import de parties (page Analyse), de .env.deploy.
+      TRAVERSAL_LOGIN: "${TRAVERSAL_LOGIN:-}"
+      TRAVERSAL_PASSWORD: "${TRAVERSAL_PASSWORD:-}"
       # DB Lampion (Postgres), résolue par le Makefile. Vérifié au démarrage.
       DATABASE_URL: "${DATABASE_URL:-}"
     ports:

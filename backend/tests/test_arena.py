@@ -232,3 +232,22 @@ def test_division_waits_for_placement():
     assert arena.division(None, 0) is None
     assert arena.division(1700, 4)["placement"] == {"played": 4, "total": arena.PROVISIONAL_GAMES}
     assert arena.division(1700, 10)["label"] == "Jade II"
+
+
+async def test_round_robin_between_players_bots_only(client):
+    h = await registered(client)
+    bots = [await active_bot(client, h, name) for name in ("Alpha", "Bravo")]
+    bots.append(await active_bot(client, await registered(client, "autre@example.com"), "Charlie"))
+    async with store.engine.begin() as conn:
+        await conn.execute(db.arena_jobs.delete())  # placements : hors sujet ici
+    assert await arena.round_robin(4) == (3, 12)  # 3 duels × 4 parties
+    async with store.engine.connect() as conn:
+        rows = (await conn.execute(select(db.arena_jobs.c.red_id, db.arena_jobs.c.blue_id, db.arena_jobs.c.terrain,
+                                          db.arena_jobs.c.seed).order_by(db.arena_jobs.c.created_at))).all()
+    assert all(r.red_id in bots and r.blue_id in bots for r in rows)  # aucun bot maison
+    for i, x in enumerate(bots):
+        for y in bots[i + 1:]:
+            duel = [r for r in rows if {r.red_id, r.blue_id} == {x, y}]
+            assert len(duel) == 4 and sum(r.red_id == x for r in duel) == 2  # couleurs équilibrées
+    # Ronde par ronde : chaque duel a sa première paire avant qu'un duel joue sa deuxième.
+    assert len({frozenset((r.red_id, r.blue_id)) for r in rows[:6]}) == 3

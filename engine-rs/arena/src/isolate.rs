@@ -30,8 +30,13 @@ const DATA_LIMIT: u64 = 400 * 1024 * 1024;
 
 /// Délai d'une tâche : temps CPU (`RLIMIT_CPU`) et temps réel (le parent tue l'enfant).
 pub fn timeout_for(kind: &str) -> Duration {
-    // Validation : 2 parties ; une partie : ≤ 200 demi-coups × 2 milliards de fuel.
-    Duration::from_secs(if kind == "check" { 120 } else { 300 })
+    // Validation : 2 parties ; une partie : ≤ 200 demi-coups × 2 milliards de fuel ; un
+    // bilan : ≤ 200 positions × (un coup du bot + deux recherches d'orque).
+    Duration::from_secs(match kind {
+        "check" => 120,
+        "analyse" => 1200,
+        _ => 300,
+    })
 }
 
 /// Côté parent : joue la tâche dans un processus enfant ; `Err` si l'enfant n'a pas rendu
@@ -99,7 +104,8 @@ pub fn child(cpu_secs: u64, play: impl FnOnce(&wasmtime::Engine, &Value, &[u8], 
     limit_resources(cpu_secs);
     let mut input = BufReader::new(std::io::stdin().lock());
     let mut line = Vec::new();
-    input.by_ref().take(1 << 16).read_until(b'\n', &mut line).expect("lecture de la tâche");
+    // 2 Mo : un bilan transporte toutes les positions de la partie (~100 Ko pour 200 coups).
+    input.by_ref().take(1 << 21).read_until(b'\n', &mut line).expect("lecture de la tâche");
     let header: Value = serde_json::from_slice(&line).expect("tâche JSON");
     let size = |i: usize| header["sizes"][i].as_u64().unwrap_or(0).min(MAX_MODULE_BYTES as u64 + 1) as usize;
     let (mut red, mut blue) = (vec![0; size(0)], vec![0; size(1)]);

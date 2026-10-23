@@ -7,12 +7,13 @@ import { usePathname } from "next/navigation";
 import { LANGS } from "@/lib/i18n/core";
 import { useLang, useT } from "@/lib/i18n/client";
 import { MeProvider, useMe } from "@/lib/me";
-import { IconArena, IconBook, IconBot, IconEye, IconPuzzle, IconGear, IconHome, IconPlay, IconTrophy, IconUser, Logo } from "./icons";
+import { IconArena, IconBook, IconChart, IconBot, IconEye, IconPuzzle, IconGear, IconHome, IconPlay, IconTrophy, IconUser, Logo } from "./icons";
 
 // Arène seule (défaut) : seuls l'arène et les règles apparaissent. Avec FULL_SITE=1
 // (`lib/site.ts`), les onglets du site complet s'ajoutent, après un séparateur.
 const NAV = [
   { href: "/arena", key: "arena", Icon: IconArena },
+  { href: "/analyse", key: "analyse", Icon: IconChart },
   { href: "/rules", key: "rules", Icon: IconBook },
 ] as const;
 const NAV_SOON = [

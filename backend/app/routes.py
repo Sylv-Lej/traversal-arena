@@ -30,7 +30,7 @@ from app.engine import (
 from app.services import games as svc
 from app.countries import normalize_country
 from app.i18n import lang_of
-from app.services import accounts, analysis_jobs, arena, limits, lobby, matches, ranks, spectators, training
+from app.services import accounts, analysis_jobs, arena, imports, limits, lobby, matches, ranks, spectators, training
 from app.services.gametypes import BOT_CLASS, DEFAULT_CLASS, RATED_CLASSES, display_class
 from app.services.realtime import hub
 from app.services.store import Game, Player, store
@@ -59,6 +59,7 @@ _sandbox_limit = rate_limit(SANDBOX_LIMITER)
 _signup_limit = limits.shared_limit("guest", 20, 60)  # création d'invités
 _login_limit = limits.shared_limit("auth", 10, 60)  # connexions, mots de passe
 _analysis_limit = limits.shared_limit("analysis", 20, 600)  # bilans : calcul coûteux
+_import_limit = limits.shared_limit("import", 20, 600)  # imports : requêtes vers traversalgame.com
 
 
 def reset_limiters() -> None:
@@ -245,6 +246,25 @@ async def play_move(game_id: str, body: PlayMove, player: Player = Depends(curre
 
 class Action(BaseModel):
     action: Literal["offer", "accept", "decline"] = "offer"
+
+
+class ImportGame(BaseModel):
+    url: str = Field(max_length=500)
+
+
+@router.post("/imports", dependencies=[Depends(_import_limit)])
+async def import_game(body: ImportGame, player: Player = Depends(current_player)):
+    """Importe une partie de traversalgame.com (par son lien) pour en faire le bilan."""
+    try:
+        game = await imports.import_game(body.url, player)
+    except svc.GameError as exc:
+        raise _http(exc) from exc
+    return {"id": game.id}
+
+
+@router.get("/imports/status")
+async def import_status():
+    return {"enabled": imports.enabled()}
 
 
 @router.get("/games/{game_id}/analysis")

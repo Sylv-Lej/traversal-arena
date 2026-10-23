@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 publish = false
-description = "Moteur de l'analyse de partie : le bot « orque » (le plus fort de l'arène), à budget de nœuds fixe."
+description = "Moteur de l'analyse de partie : le bot « orque », à budget de nœuds fixe."
 
 [dependencies]
 traversal-bot = { path = "../sdk" }

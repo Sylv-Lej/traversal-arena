@@ -79,7 +79,7 @@ export interface PlayerCard {
 }
 
 export type GameStatus = "waiting" | "active" | "finished" | "aborted";
-export type GameMode = "local" | "bot" | "online" | "arena";
+export type GameMode = "local" | "bot" | "online" | "arena" | "import";
 
 export interface GameView {
   id: string;
@@ -110,6 +110,8 @@ export interface GameView {
   spectators: number;
   /** Manche d'un match tactique (sinon null). */
   match: MatchBrief | null;
+  /** Partie importée d'un autre site (mode « import ») : d'où elle vient. */
+  source: { site: string; url: string } | null;
 }
 
 export interface MatchBrief {
@@ -240,6 +242,8 @@ export interface Analysis {
   moves: AnalyzedMove[];
   accuracy: [number | null, number | null];
   counts: [Partial<Record<MoveClass, number>>, Partial<Record<MoveClass, number>>];
+  /** Bot de l'arène qui a proposé les meilleurs coups (orque note) ; null : orque seul. */
+  engine: { bot: { id: string; name: string; rating: number | null }; eval: string } | null;
 }
 
 export interface AnalysisStatus {
@@ -247,6 +251,8 @@ export interface AnalysisStatus {
   done: number;
   total: number;
   result?: Analysis;
+  /** Confié au runner de l'arène (pas d'avancement coup par coup). */
+  byArena?: boolean;
 }
 
 // --- Puzzles -----------------------------------------------------------------------------

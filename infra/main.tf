@@ -86,12 +86,22 @@ module "backend" {
     TEM_PROJECT_ID  = local.tem_project_id
     # Parties de l'arène consultables (relecture, rejeu sur l'accueil) : `services/arena.py`.
     ARENA_REPLAYS = var.arena_replays ? "1" : ""
+    # Bilans de partie par le runner (n°1 de l'arène + orque), lancé à la demande
+    # (`services/runner_wake.py`) : la tâche est retrouvée par son nom.
+    ARENA_ANALYSES = "1"
+    ARENA_JOB_NAME = "${local.name}-arena"
+    SCW_REGION     = var.region
   }
   secret_environment_variables = {
     DATABASE_URL   = var.database_url
     API_KEY        = random_password.api_key.result
     TEM_SECRET_KEY = local.tem_secret_key
     ARENA_TOKEN    = random_password.arena_token.result
+    # Import des parties de traversalgame.com (`services/imports.py`).
+    TRAVERSAL_LOGIN    = var.traversal_login
+    TRAVERSAL_PASSWORD = var.traversal_password
+    # Lancer le runner pour un bilan (clé limitée aux Serverless Jobs du projet).
+    SCW_JOBS_SECRET_KEY = scaleway_iam_api_key.runner_wake.secret_key
   }
 }
 
@@ -150,6 +160,29 @@ resource "scaleway_job_definition" "arena" {
     schedule = var.arena_schedule
     timezone = "Europe/Paris"
   }
+}
+
+# Le backend lance le runner dès qu'un bilan est demandé (sans attendre le cron) : une
+# application IAM qui n'a QUE les Serverless Jobs du projet (Scaleway n'a pas de droit
+# plus étroit, « lancer une tâche » seul).
+resource "scaleway_iam_application" "runner_wake" {
+  name        = "${local.name}-runner-wake"
+  description = "Backend Traversal : lancer le runner de l'arène (bilans de partie) seulement"
+}
+
+resource "scaleway_iam_policy" "runner_wake" {
+  name           = "${local.name}-runner-wake"
+  application_id = scaleway_iam_application.runner_wake.id
+  rule {
+    project_ids          = [scaleway_container_namespace.main.project_id]
+    permission_set_names = ["ServerlessJobsFullAccess"]
+  }
+}
+
+resource "scaleway_iam_api_key" "runner_wake" {
+  application_id     = scaleway_iam_application.runner_wake.id
+  default_project_id = scaleway_container_namespace.main.project_id
+  description        = "SCW_JOBS_SECRET_KEY du backend Traversal"
 }
 
 # --- Domaine : site + emails ---

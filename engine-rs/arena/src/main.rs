@@ -8,6 +8,9 @@
 //! traversal-arena work --api https://… [--max-seconds 1500] [--forever] # production
 //! ```
 //!
+//! Avec la fonctionnalité `analysis` (image du site), `work` fait aussi les bilans de
+//! partie demandés sur le site : le bot rouge joue chaque position, orque note (`analyse.rs`).
+//!
 //! Un bot est un fichier `.wasm` ou un bot maison : `galet`, `sentier`, `crete`, `sommet`,
 //! `montblanc` (ou `1` à `5`), lus dans `--house` (défaut `$HOUSE_DIR`, sinon `/house`).
 //!
@@ -16,6 +19,8 @@
 //! vérifie chaque coup avec son propre moteur. Chaque partie se joue dans un processus
 //! enfant cloisonné, sans ce jeton ni le code des autres bots (`isolate.rs`).
 
+#[cfg(feature = "analysis")]
+mod analyse;
 mod game;
 mod isolate;
 mod sandbox;
@@ -190,6 +195,13 @@ fn validate(engine: &Engine, module: &Module, galet: &Module, heights: [u8; SQUA
 fn play_task(engine: &Engine, job: &Value, red: &[u8], blue: &[u8]) -> Value {
     if job["kind"] == "probe" {
         return probe();
+    }
+    // Bilan d'une partie par le bot rouge (n°1 de l'arène) et orque : `analyse.rs`.
+    if job["kind"] == "analyse" {
+        #[cfg(feature = "analysis")]
+        return analyse::run(engine, job, red);
+        #[cfg(not(feature = "analysis"))]
+        return json!({"error": "runner compilé sans la fonctionnalité « analysis »"});
     }
     let heights: [u8; SQUARES] = job["heights"]
         .as_array()

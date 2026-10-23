@@ -15,6 +15,10 @@ Vue d'ensemble (détails dans `ARENA.md`) :
    nouvelles paires de parties sont tirées entre bots de niveau proche.
 5. **Classement** (`recompute`) : Bradley-Terry (Elo) sur toutes les parties de
    l'arène, ancré sur Galet = 920 comme le classement des bots du site.
+6. **Bilans** (`queue_analysis`) : le bilan d'une partie du site est fait par le runner,
+   avant les parties de l'échelle : le n°1 du classement propose le meilleur coup de
+   chaque position, orque note ce coup et le coup joué. Les coups du bot sont vérifiés
+   ici, le bilan est rangé sur la partie (`report`).
 """
 
 import base64
@@ -30,8 +34,9 @@ from sqlalchemy import and_, delete, func, or_, select, text, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app import bot, db
-from app.bot.native import to_move
-from app.engine import apply_move, end_game, generate_terrain, new_game
+from app.analysis import ANALYSIS_NODES, PositionResult, analyse_game
+from app.bot.native import pack, to_move
+from app.engine import Move, apply_move, end_game, generate_terrain, legal_moves, new_game
 from app.engine import config as C
 from app.services import limits, ranks
 from app.services.games import _record
@@ -54,6 +59,7 @@ BATCH_PAIRS = 6  # paires tirées quand la file est vide
 CALIBRATION_GAMES = 20  # parties entre bots maison voisins (une fois) pour caler l'échelle
 NEIGHBOURS = 3  # adversaire tiré parmi les N bots de classement le plus proche
 STALE_CLAIM_S = 300  # tâche d'un runner disparu : remise en file
+STALE_ANALYSIS_S = 1300  # un bilan peut durer 1200 s (`isolate::timeout_for`)
 MAX_ATTEMPTS = 3
 RECOMPUTE_EVERY_S = 60
 ANCHOR = ("bot1", 920.0)  # Galet, comme `bot.LEVELS`
@@ -193,24 +199,34 @@ def _side(pid: str, sha: str | None) -> dict:
 
 
 async def claim() -> dict | None:
-    """Prochaine tâche pour un runner (les validations d'abord) ; None si rien à faire."""
-    for attempt in range(2):
+    """Prochaine tâche pour un runner (les validations, puis les bilans, d'abord) ; None si
+    rien à faire."""
+    for attempt in range(3):
         now = time.time()
         async with store.engine.begin() as conn:
             # Runner disparu en pleine partie : la tâche repart (ou abandonne après 3 essais).
-            await conn.execute(delete(db.arena_jobs).where(
-                j.status == "running", j.claimed_at < now - STALE_CLAIM_S, j.attempts >= MAX_ATTEMPTS))
-            await conn.execute(update(db.arena_jobs).where(
-                j.status == "running", j.claimed_at < now - STALE_CLAIM_S).values(status="queued"))
+            stale = j.claimed_at < now - STALE_CLAIM_S
+            stale = or_(and_(j.kind != "analyse", stale), j.claimed_at < now - STALE_ANALYSIS_S)
+            await conn.execute(delete(db.arena_jobs).where(j.status == "running", stale, j.attempts >= MAX_ATTEMPTS))
+            await conn.execute(update(db.arena_jobs).where(j.status == "running", stale).values(status="queued"))
             row = (await conn.execute(
                 select(db.arena_jobs).where(j.status == "queued")
-                .order_by((j.kind == "check").desc(), j.created_at).limit(1).with_for_update(skip_locked=True)
+                .order_by((j.kind == "check").desc(), (j.kind == "analyse").desc(), j.created_at)
+                .limit(1).with_for_update(skip_locked=True)
             )).mappings().first()
             if row is not None:
                 await conn.execute(update(db.arena_jobs).where(j.id == row["id"]).values(
                     status="running", claimed_at=now, attempts=row["attempts"] + 1))
                 shas = dict((await conn.execute(select(a.id, a.sha256).where(
                     a.id.in_((row["red_id"], row["blue_id"]))))).all())
+                if row["kind"] == "analyse":
+                    game = await store.get_game(row["game_id"])
+                    if game is None:  # partie effacée entre-temps : tâche suivante
+                        await conn.execute(delete(db.arena_jobs).where(j.id == row["id"]))
+                        continue
+                    side = _side(row["red_id"], shas.get(row["red_id"]))
+                    return {"id": row["id"], "kind": "analyse", "fuel": FUEL_PER_MOVE, "nodes": ANALYSIS_NODES,
+                            "positions": _positions(game), "red": side, "blue": side}
                 return {
                     "id": row["id"], "kind": row["kind"], "seed": row["seed"], "heights": row["heights"],
                     "moveLimit": new_game(tuple(row["heights"])).move_limit, "fuel": FUEL_PER_MOVE,
@@ -239,17 +255,21 @@ async def report(job_id: str, body: dict) -> None:
         if job["kind"] == "check":
             await _checked(conn, job["red_id"], bool(body.get("ok")), body.get("error"))
             return
-        try:
-            game = replay(job, body)
-        except (ValueError, IndexError, KeyError, TypeError, StopIteration) as exc:
-            # Le runner et le moteur Python ne sont pas d'accord : partie écartée (la
-            # tâche aussi), à investiguer — une règle changée d'un seul côté ?
-            log.error("partie d'arène %s refusée : %s", job_id, exc)
-            refused = str(exc) or type(exc).__name__
-        else:
-            await conn.execute(pg_insert(db.games).values(**_game_row(game)))
-            if game.moves:
-                await conn.execute(pg_insert(db.moves), [_move_row(game.id, m) for m in game.moves])
+        if job["kind"] != "analyse":
+            try:
+                game = replay(job, body)
+            except (ValueError, IndexError, KeyError, TypeError, StopIteration) as exc:
+                # Le runner et le moteur Python ne sont pas d'accord : partie écartée (la
+                # tâche aussi), à investiguer — une règle changée d'un seul côté ?
+                log.error("partie d'arène %s refusée : %s", job_id, exc)
+                refused = str(exc) or type(exc).__name__
+            else:
+                await conn.execute(pg_insert(db.games).values(**_game_row(game)))
+                if game.moves:
+                    await conn.execute(pg_insert(db.moves), [_move_row(game.id, m) for m in game.moves])
+    if job["kind"] == "analyse":
+        await _analysed(job, body)
+        return
     if refused:
         raise ArenaError(422, "Partie refusée.")
     await recompute()
@@ -298,6 +318,75 @@ def replay(job, body: dict) -> Game:
         raise ValueError("partie inachevée")
     game.ended_at = time.time()
     return game
+
+
+# --- Bilans de partie par le n°1 de l'arène ----------------------------------------------
+
+
+def analyses_enabled() -> bool:
+    """Bilans par le runner (`ARENA_ANALYSES=1`, avec un runner configuré) ; sinon, orque
+    seul dans le backend."""
+    return bool(runner_token()) and os.environ.get("ARENA_ANALYSES") == "1"
+
+
+async def analysis_bot() -> dict | None:
+    """Le bot qui fait les bilans : le premier du classement de l'arène (placement fini)."""
+    return next((b for b in await leaderboard() if b["rating"] is not None and not b["provisional"]), None)
+
+
+async def queue_analysis(game: Game, bot_id: str) -> None:
+    job = {**_new_job("analyse", bot_id, bot_id, ("analysis", 0, game.state.heights)), "game_id": game.id}
+    async with store.engine.begin() as conn:
+        await conn.execute(pg_insert(db.arena_jobs).values(**job))
+
+
+def _positions(game: Game) -> list[dict]:
+    """Chaque position avant un coup, au format du moteur Rust, et le coup joué."""
+    out = []
+    for i, rec in enumerate(game.moves):
+        s = game.states[i]
+        piece = next((k for k, p in enumerate(s.pieces) if p.id == rec.piece_id), -1)
+        out.append({"state": pack(s), "played": [piece, rec.kind, -1 if rec.to is None else rec.to], "seed": i + 1})
+    return out
+
+
+def analysis_results(game: Game, positions: list) -> list[PositionResult | None]:
+    """Notes rendues par le runner -> résultats du bilan. Chaque coup du bot est vérifié
+    (coup légal de la position) ; ValueError & co. si le rendu ne colle pas à la partie."""
+    if len(positions) != len(game.moves):
+        raise ValueError("nombre de positions")
+    out: list[PositionResult | None] = []
+    for state, rec, pos in zip(game.states, game.moves, positions):
+        if rec.kind == "pass":
+            out.append(None)  # passe forcée : le bilan ne la note pas
+            continue
+        played = Move(rec.piece_id, rec.kind, rec.to, tuple(rec.path), 0, rec.special)
+        piece, kind, to = pos["bot"]
+        best = to_move(state, int(piece), str(kind), int(to))
+        bot_score, played_score = float(pos["botScore"]), float(pos["playedScore"])
+        if played_score >= bot_score or (best.piece_id, best.kind, best.to) == (rec.piece_id, rec.kind, rec.to):
+            best, bot_score = played, max(bot_score, played_score)
+        forced = len([m for m in legal_moves(state) if m.kind != "pass"]) <= 1
+        out.append(PositionResult(best, bot_score, played_score, int(pos.get("depth") or 0), forced))
+    return out
+
+
+async def _analysed(job, body: dict) -> None:
+    from app.services import analysis_jobs
+
+    game = await store.get_game(job["game_id"])
+    if game is None:
+        return
+    try:
+        results = analysis_results(game, body["positions"])
+    except (ValueError, IndexError, KeyError, TypeError, StopIteration) as exc:
+        log.error("bilan de %s par l'arène refusé : %s (%s)", game.id, exc, body.get("error"))
+        await analysis_jobs.fall_back(game.id)
+        raise ArenaError(422, "Bilan refusé.") from exc
+    bot_row = next((b for b in await leaderboard() if b["id"] == job["red_id"]), None)
+    engine = {"bot": {"id": job["red_id"], "name": bot_row["name"] if bot_row else job["red_id"],
+                      "rating": bot_row["rating"] if bot_row else None}, "eval": "orque"}
+    await store.set_analysis(game.id, analyse_game(list(game.states), list(game.moves), None, results, engine))
 
 
 # --- Échelle : quelles parties jouer ensuite ? ------------------------------------------
@@ -355,6 +444,22 @@ async def _calibration(conn) -> list[dict]:
         if n < CALIBRATION_GAMES:
             jobs += _pair(x, y)
     return jobs
+
+
+async def round_robin(games: int = 20) -> tuple[int, int]:
+    """À la main seulement (`make arena-round-robin`) : `games` parties de plus entre
+    chaque paire de bots des joueurs en lice (bots maison exclus), couleurs inversées.
+    Ronde par ronde (une paire de parties par duel et par ronde) : le classement reste
+    équilibré pendant que la file se vide. Renvoie (bots, parties mises en file)."""
+    if games < 2 or games % 2:
+        raise ValueError("games doit être pair (chaque carte est jouée deux fois, couleurs inversées)")
+    async with store.engine.begin() as conn:
+        active = sorted((await conn.execute(select(a.id).where(a.status == "active"))).scalars())
+        duels = [(x, y) for i, x in enumerate(active) for y in active[i + 1:]]
+        jobs = [job for _ in range(games // 2) for x, y in duels for job in _pair(x, y)]
+        if jobs:
+            await conn.execute(pg_insert(db.arena_jobs), jobs)
+    return len(active), len(jobs)
 
 
 # --- Classement --------------------------------------------------------------------------

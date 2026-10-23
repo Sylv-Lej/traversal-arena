@@ -15,8 +15,12 @@ VERSION=$(sed -n 's/^version = "\(.*\)"$/\1/p' "$SRC/Cargo.toml" | head -1)
 STAGE=$(mktemp -d)
 trap 'rm -rf "$STAGE"' EXIT
 for d in core sdk bots arena; do
-  rsync -a --exclude target "$SRC/$d" "$STAGE/"
+  rsync -a --exclude target --exclude analyse.rs "$SRC/$d" "$STAGE/"
 done
+# Orque (bilans de partie) n'est pas publié : le runner public n'en dépend pas, et la
+# fonctionnalité `analysis` y est vide (le module `analyse.rs` n'est pas copié).
+sed -i.bak -e '/traversal-analysis = {/d' -e 's/^analysis = \["dep:traversal-analysis"\]$/analysis = []/' \
+  "$STAGE/arena/Cargo.toml" && rm "$STAGE/arena/Cargo.toml.bak"
 cp "$SRC/boards.json" "$SRC/.dockerignore" "$SRC/sdk-repo/README.md" "$SRC/sdk-repo/LICENSE" "$STAGE/"
 cp "$SRC/sdk-repo/gitignore" "$STAGE/.gitignore"
 sed "s/@VERSION@/$VERSION/" "$SRC/sdk-repo/Cargo.toml" > "$STAGE/Cargo.toml"
@@ -29,6 +33,8 @@ cp "$SRC/sdk-repo/LICENSE" "$STAGE/core/LICENSE"
 cp "$SRC/sdk-repo/LICENSE" "$STAGE/sdk/LICENSE"
 # Pas de dépendance externe dans ce workspace : le Cargo.lock se génère hors ligne.
 docker run --rm -v "$STAGE":/w -w /w rust:1.88-slim cargo generate-lockfile --offline -q
+# Le runner a son propre Cargo.lock : on n'y retire que traversal-analysis et ses dépendances.
+docker run --rm -v "$STAGE":/w -w /w/arena rust:1.88-slim cargo update --workspace -q
 
 # target/ : cache de compilation du dépôt du SDK, gardé. bots/custom/ : bots personnels,
 # ignorés par git dans le dépôt du SDK, gardés aussi.

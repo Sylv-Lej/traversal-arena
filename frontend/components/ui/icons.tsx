@@ -46,6 +46,7 @@ export const IconFirst = I("M11 18l-6-6 6-6M18 18l-6-6 6-6");
 export const IconLast = I("M13 18l6-6-6-6M6 18l6-6-6-6");
 export const IconClose = I("M6 6l12 12M18 6L6 18");
 // Arène des bots : un bloc de code entre chevrons.
+export const IconChart = I("M3 20h18M4 16l5-6 4 3 7-8");
 export const IconArena = I("M8 7l-5 5 5 5M16 7l5 5-5 5M14 4l-4 16");
 export const IconPeople = I("M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM2 21a7 7 0 0 1 14 0M17 3a4 4 0 0 1 0 8M22 21a7 7 0 0 0-4-6.3");
 

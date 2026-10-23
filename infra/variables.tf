@@ -95,6 +95,19 @@ variable "tem_secret_key" {
   description = "Clé IAM Scaleway DÉDIÉE, limitée à TransactionalEmailFullAccess (pas la clé d'admin)"
 }
 
+variable "traversal_login" {
+  type        = string
+  default     = ""
+  sensitive   = true
+  description = "Compte traversalgame.com qui lit les parties à importer (vide : import fermé)"
+}
+
+variable "traversal_password" {
+  type      = string
+  default   = ""
+  sensitive = true
+}
+
 variable "tem_project_id" {
   type        = string
   default     = ""

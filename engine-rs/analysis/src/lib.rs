@@ -1,6 +1,8 @@
-//! Moteur de l'ANALYSE DE PARTIE (backend : `app/analysis.py`, via le module `traversal_rs`).
+//! Moteur de l'ANALYSE DE PARTIE : il note les coups (backend : `app/analysis.py`, via le
+//! module `traversal_rs` ; runner de l'arène : `arena/src/analyse.rs`, où le n°1 de
+//! l'arène propose les coups et orque les note).
 //!
-//! C'est le bot « orque », le plus fort de l'arène (93 % contre Mont Blanc), recopié depuis
+//! C'est le bot « orque » (93 % contre Mont Blanc), recopié depuis
 //! le dépôt du SDK (`bots/custom/orque`, bot personnel, non publié) ; ce crate n'est pas
 //! publié non plus. Ajouts : `analyse` (meilleur coup ET score du coup joué, même
 //! recherche, budget de nœuds fixe). Le code du bot n'est compilé qu'en WebAssembly.

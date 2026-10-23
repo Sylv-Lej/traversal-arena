@@ -121,7 +121,7 @@ class MoveRecord:
 @dataclass
 class Game:
     id: str
-    mode: str  # local | bot | online
+    mode: str  # local | bot | online | arena | import
     terrain_mode: str
     seed: int
     players: list[str | None]  # index 0 = joueur 1 (rouge)
@@ -156,6 +156,10 @@ class Game:
     round: int | None = None
     # Mise en place des pièces au début (`C.SETUPS`) : celle du moment pour une nouvelle partie.
     setup: str = C.SETUP
+    # Partie importée (mode « import ») : référence sur le site d'origine, et ce qu'on en
+    # garde (`imports.py`) ; les joueurs n'ont pas de compte ici.
+    import_ref: str | None = None
+    imported: dict | None = None
 
     @property
     def state(self) -> GameState:
@@ -231,6 +235,7 @@ def _game_row(g: Game) -> dict:
         "created_at": g.created_at, "ended_at": g.ended_at,
         "rank_change": g.rank_change, "deadline_at": g.deadline_at,
         "match_id": g.match_id, "round": g.round, "setup": g.setup,
+        "import_ref": g.import_ref, "imported": g.imported,
     }
 
 
@@ -650,6 +655,7 @@ class Store:
             ended_at=row["ended_at"], analysis=row["analysis"], rank_change=row["rank_change"],
             deadline_at=row["deadline_at"],
             match_id=row["match_id"], round=row["round"], setup=setup,
+            import_ref=row["import_ref"], imported=row["imported"],
             # Au bot de jouer : une tâche `bot_jobs` existe (cf. `_write_bot_job`).
             bot_due_at=row["turn_started_at"] if _bot_to_move(row, states[-1]) else None,
         )
@@ -737,6 +743,13 @@ class Store:
                 await self._insert_game(conn, game)
         else:
             await self._insert_game(conn, game)
+        self._cache_game(game)
+
+    async def insert_finished(self, game: Game) -> None:
+        """Partie déjà jouée ailleurs (import) : la partie et tous ses coups d'un coup."""
+        async with self.engine.begin() as conn:
+            await conn.execute(pg_insert(db.games).values(**_game_row(game)))
+            await conn.execute(pg_insert(db.moves), [_move_row(game.id, m) for m in game.moves])
         self._cache_game(game)
 
     # Chaque aller-retour vers la base compte (un coup = une transaction) : les
@@ -868,7 +881,7 @@ class Store:
 
     async def games_of(self, pid: str, online_only: bool = False, limit: int = 30) -> list[GameSummary]:
         c = db.games.c
-        q = select(db.games).where(or_(c.p1_id == pid, c.p2_id == pid, c.created_by == pid))
+        q = select(db.games).where(or_(c.p1_id == pid, c.p2_id == pid, c.created_by == pid), c.mode != "import")
         if online_only:
             q = q.where(c.mode == "online")
         q = q.order_by(c.created_at.desc()).limit(limit)

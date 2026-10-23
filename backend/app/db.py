@@ -136,6 +136,10 @@ games = Table(
     # Manche d'un match tactique (sinon NULL).
     Column("match_id", String(16), ForeignKey("matches.id", ondelete="CASCADE"), nullable=True),
     Column("round", Integer, nullable=True),
+    # Partie importée d'un autre site (mode « import ») : sa référence là-bas (une partie
+    # n'est importée qu'une fois) et ce qu'on en garde (pseudos, classements, lien).
+    Column("import_ref", String(64), unique=True, nullable=True),
+    Column("imported", JSON, nullable=True),
     Index("ix_games_p1", "p1_id", "created_at"),
     Index("ix_games_p2", "p2_id", "created_at"),
     Index("ix_games_creator", "created_by", "created_at"),
@@ -349,7 +353,7 @@ arena_jobs = Table(
     "arena_jobs",
     metadata,
     Column("id", String(16), primary_key=True),
-    Column("kind", String(8), nullable=False),  # check | game
+    Column("kind", String(8), nullable=False),  # check | game | analyse
     Column("red_id", String(16), ForeignKey("players.id", ondelete="CASCADE"), nullable=False),
     Column("blue_id", String(16), ForeignKey("players.id", ondelete="CASCADE"), nullable=False),
     Column("terrain", String(16), nullable=False),
@@ -359,6 +363,8 @@ arena_jobs = Table(
     Column("attempts", Integer, nullable=False),
     Column("created_at", Float, nullable=False),
     Column("claimed_at", Float, nullable=True),
+    # Bilan (`analyse`) : la partie analysée par le bot rouge (le n°1 de l'arène) et orque.
+    Column("game_id", String(16), ForeignKey("games.id", ondelete="CASCADE"), nullable=True),
     Index("ix_arena_jobs_queue", "status", "created_at"),
 )
 

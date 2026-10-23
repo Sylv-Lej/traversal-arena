@@ -28,7 +28,20 @@ const fr = {
   bestMove: "Meilleur coup :",
   showOnBoard: "Montrer sur le plateau",
   wasBest: "C’était le meilleur coup.",
-  footer: (depth: number) => `Moteur Traversal, profondeur ${depth}. Clique la courbe ou un coup pour le revoir.`,
+  footer: (depth: number) => `Évaluation par orque, profondeur ${depth}. Clique la courbe ou un coup pour le revoir.`,
+  analysedWith: (bot: string, rating: number | null) =>
+    `Analysé avec : ${bot}${rating != null ? ` (${rating})` : ""}, n°1 de l’arène.`,
+  analysedWithOrque: "Analysé avec : orque.",
+  byArena: "Le n°1 de l’arène analyse la partie… (une à deux minutes)",
+  // Import d'une partie de traversalgame.com (page /analyse)
+  importTitle: "Analyser une partie",
+  importIntro:
+    "Colle le lien d’une partie terminée sur traversalgame.com : elle est rejouée avec nos règles, puis analysée coup par coup par le n°1 du classement de l’arène.",
+  importLink: "Lien de la partie",
+  importPlaceholder: "https://www.traversalgame.com/game/…",
+  importSubmit: "Analyser",
+  importing: "Import de la partie…",
+  importClosed: "L’import de parties n’est pas disponible pour le moment.",
 };
 
 const en: typeof fr = {
@@ -56,7 +69,19 @@ const en: typeof fr = {
   bestMove: "Best move:",
   showOnBoard: "Show on board",
   wasBest: "That was the best move.",
-  footer: (depth: number) => `Traversal engine, depth ${depth}. Click the graph or a move to review it.`,
+  footer: (depth: number) => `Evaluation by orque, depth ${depth}. Click the graph or a move to review it.`,
+  analysedWith: (bot: string, rating: number | null) =>
+    `Analyzed with: ${bot}${rating != null ? ` (${rating})` : ""}, the arena’s #1.`,
+  analysedWithOrque: "Analyzed with: orque.",
+  byArena: "The arena’s #1 is analyzing the game… (one to two minutes)",
+  importTitle: "Analyze a game",
+  importIntro:
+    "Paste the link of a finished game on traversalgame.com: it is replayed with our rules, then analyzed move by move by the top bot of the arena leaderboard.",
+  importLink: "Game link",
+  importPlaceholder: "https://www.traversalgame.com/game/…",
+  importSubmit: "Analyze",
+  importing: "Importing the game…",
+  importClosed: "Game import isn’t available right now.",
 };
 
 export default { fr, en };

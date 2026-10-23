@@ -137,6 +137,9 @@ Site complet en local : `make dev`, puis `make arena-dev`
    proche — au plus 40 parties par bot et par 24 h (coût du runner borné). Deux bots du
    même joueur peuvent se rencontrer. Une fois pour toutes, 20 parties entre bots maison
    voisins calent l'échelle.
+   **Round-robin**, à la main seulement : `make arena-round-robin GAMES=20` (dev) ou
+   `make arena-round-robin-prod` met en file GAMES parties entre chaque paire de bots des
+   joueurs en lice (bots maison exclus), ronde par ronde, hors plafond quotidien.
 5. **Vérification** : le runner rend les coups, jamais le résultat. Le backend rejoue
    avec le moteur Python ; coup illégal ou partie inachevée = refusée. Une faute déclarée
    doit tomber sur le camp au trait.
@@ -150,6 +153,27 @@ fermée par défaut** : on voit les résultats (fiche d'un bot), pas les parties
 partie répond 404, l'accueil montre un plateau décoratif. `ARENA_REPLAYS=1` (variable
 Terraform `arena_replays`) ouvre relecture, bilan et rejeu sur l'accueil.
 
+### Bilans de partie
+
+Le bilan d'une partie du site (bouton « Bilan », page Analyse) est fait **par le runner,
+avec le n°1 du classement de l'arène** (placement fini, bots maison compris). Les auteurs
+de bots sont d'accord pour que le leur serve : c'est la vitrine du meilleur bot.
+
+1. Le backend met une tâche `analyse` en file (`arena_jobs.game_id`), servie avant les
+   parties de l'échelle, et **lance le runner tout de suite** (Serverless Job démarré par
+   l'API Scaleway, clé limitée aux Serverless Jobs du projet : `runner_wake.py`), sauf
+   s'il tourne déjà.
+2. Dans le processus enfant cloisonné (`analyse.rs`), pour chaque position : le bot
+   choisit son coup (même fuel qu'en partie, instance neuve par position), puis **orque**
+   (natif, 60 000 nœuds par recherche) note ce coup et le coup joué. Délai : 1200 s.
+3. Le backend vérifie que chaque coup du bot existe dans la position, en tire précision,
+   appréciations et courbe (`app/analysis.py`), et range le bilan, signé du bot
+   (« Analysé avec : … »). Rendu refusé, ou pas de réponse en 10 min : orque seul, dans
+   le backend.
+
+Orque n'est pas publié : l'analyse n'existe qu'avec la fonctionnalité Cargo `analysis`
+(image du site). Le dépôt public du SDK reçoit le runner sans elle (`sync_sdk.sh`).
+
 ## Sécurité
 
 Deux barrières indépendantes entre un bot et le reste :
@@ -162,7 +186,7 @@ Deux barrières indépendantes entre un bot et le reste :
    aucun bot lui-même. Chaque partie ou validation passe dans `traversal-arena play`,
    qui reçoit **seulement les deux modules de sa partie** (entrée standard), avec un
    **environnement vide** (pas d'`ARENA_TOKEN`), des limites `setrlimit` (CPU 300 s,
-   ou 120 s pour une validation ; 400 Mo de données ; ni fichier core ni fichier écrit),
+   120 s pour une validation, 1200 s pour un bilan ; 400 Mo de données ; ni fichier core ni fichier écrit),
    puis un **filtre seccomp** : mémoire, lecture/écriture sur les descripteurs déjà
    ouverts, signaux, sortie, et rien d'autre (ni fichier, ni réseau, ni processus). Le
    parent le tue au-delà du délai. Une évasion de wasmtime ne donnerait donc accès ni au

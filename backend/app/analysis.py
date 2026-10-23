@@ -5,10 +5,13 @@ joué avec la MÊME recherche ; la différence, convertie en chances de gagner p
 une appréciation (meilleur … gaffe) et une précision. Pur et synchrone : le service le
 lance dans un thread, position par position, pour publier l'avancement.
 
-Moteur : le bot « orque » (`engine-rs/analysis`), le plus fort de l'arène (93 % contre
-Mont Blanc), avec un budget de NŒUDS fixe et sans limite de temps — même bilan sur toute
-machine, ~profondeur 8. Sans le module Rust (dev local), repli sur le bot Python de
-référence, bien plus faible et borné en temps.
+Moteur : le bot « orque » (`engine-rs/analysis`), avec un budget de NŒUDS fixe et sans
+limite de temps — même bilan sur toute machine, ~profondeur 8. Sans le module Rust (dev
+local), repli sur le bot Python de référence, bien plus faible et borné en temps.
+
+Bilan par l'arène (`analysis_jobs`, `arena.py`) : le n°1 du classement des bots propose
+le meilleur coup de chaque position, orque note ce coup et le coup joué ; le runner rend
+ces notes (`results`) et ce module en tire le même bilan, signé du bot (`engine`).
 """
 
 import math
@@ -23,7 +26,7 @@ from app.engine import GameState, Move, apply_move, legal_moves
 ANALYSIS_NODES = 60_000
 # Repli Python (sans module Rust) : bot de référence, budget temps en garde-fou.
 LEVEL = Level("Analyse", depth=4, beam=9, noise=0.0, budget_s=1.5)
-VERSION = 3  # un bilan d'une version antérieure (autre moteur) est recalculé
+VERSION = 4  # un bilan d'une version antérieure (autre moteur) est recalculé
 CAP = 1500  # au-delà, l'avantage est « décisif » : on borne pour les graphes et la précision
 MATE = WIN // 2
 
@@ -148,9 +151,12 @@ def move_json(m: Move) -> dict:
     return {"pieceId": m.piece_id, "kind": m.kind, "to": m.to, "path": list(m.path), "special": m.special}
 
 
-def analyse_game(states: list[GameState], records: list, progress=None) -> dict:
+def analyse_game(states: list[GameState], records: list, progress=None,
+                 results: list[PositionResult] | None = None, engine: dict | None = None) -> dict:
     """Bilan complet. `records` : coups joués (piece_id, kind, to, path, special, side,
-    ply, notation) ; `progress(i, n)` est appelé après chaque position analysée."""
+    ply, notation) ; `progress(i, n)` est appelé après chaque position analysée.
+    `results` : les positions déjà notées (bilan par l'arène), une par coup ; `engine` :
+    le bot qui a proposé les meilleurs coups (None : orque seul)."""
     from app.engine import notation
 
     out_moves = []
@@ -158,7 +164,9 @@ def analyse_game(states: list[GameState], records: list, progress=None) -> dict:
     acc: dict[int, list[float]] = {1: [], 2: []}
     counts: dict[int, dict[str, int]] = {1: {}, 2: {}}
     initial = evaluate(states[0], 1) if not states[0].over else 0.0
-    if not states[0].over:
+    if results and results[0]:
+        initial = results[0].best_score if states[0].to_move == 1 else -results[0].best_score
+    elif not states[0].over:
         initial = analyse_position(states[0], _ordered(states[0])[0]).best_score
         initial = initial if states[0].to_move == 1 else -initial
     for i, rec in enumerate(records):
@@ -168,7 +176,7 @@ def analyse_game(states: list[GameState], records: list, progress=None) -> dict:
             r = PositionResult(played, 0.0, 0.0, 0, True)
             after_red = out_moves[-1]["_red"] if out_moves else initial
         else:
-            r = analyse_position(state, played)
+            r = results[i] if results else analyse_position(state, played)
             after_red = r.played_score if rec.side == 1 else -r.played_score
             best_red = r.best_score if rec.side == 1 else -r.best_score
         cls = "forced" if rec.kind == "pass" else classify(r, _same(r.best, played))
@@ -199,6 +207,7 @@ def analyse_game(states: list[GameState], records: list, progress=None) -> dict:
         del e["_red"]
     return {
         "version": VERSION,
+        "engine": engine,
         # Profondeur moyenne atteinte (budget de nœuds : elle varie d'une position à l'autre).
         "depth": round(sum(depths) / len(depths)) if depths else LEVEL.depth,
         "initialEval": eval_json(initial),

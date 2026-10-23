@@ -153,6 +153,11 @@ export function GameClient({ id }: { id: string }) {
     review.analysis?.moves.forEach((m) => (out[m.ply] = m.class));
     return out;
   }, [review.analysis]);
+  // Partie importée : on vient pour son bilan.
+  const imported = view?.mode === "import";
+  useEffect(() => {
+    if (imported) setTab("review");
+  }, [imported]);
   const startReview = useCallback(() => {
     setTab("review");
     void review.start();
@@ -663,12 +668,24 @@ export function GameClient({ id }: { id: string }) {
                   ? t.game.info.vsBot(t.common.bots[view.botLevel ?? 1]?.name, view.botLevel)
                   : view.mode === "arena"
                     ? t.arena.title
+                  : view.source
+                    ? t.game.info.imported(view.source.site)
                   : view.mode === "local"
                     ? t.game.info.local
                     : view.rated
                       ? t.game.info.onlineRated
                       : t.game.info.onlineCasual}
               </dd>
+              {view.source && (
+                <>
+                  <dt />
+                  <dd>
+                    <a href={view.source.url} target="_blank" rel="noopener noreferrer">
+                      {t.game.info.original}
+                    </a>
+                  </dd>
+                </>
+              )}
               <dt>{t.game.info.timeControl}</dt>
               <dd>{view.timeControl ?? t.common.timeClasses.casual}</dd>
               <dt>{t.game.info.terrain}</dt>

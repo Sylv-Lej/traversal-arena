@@ -174,7 +174,11 @@ export function AnalysisPanel({
           <div className="progress" aria-live="polite">
             <div className="progressBar" style={{ width: `${status!.total ? (100 * status!.done) / status!.total : 5}%` }} />
             <span>
-              {status!.status === "queued" ? t.analysis.queued : t.analysis.progress(status!.done, status!.total)}
+              {status!.byArena
+                ? t.analysis.byArena
+                : status!.status === "queued"
+                  ? t.analysis.queued
+                  : t.analysis.progress(status!.done, status!.total)}
             </span>
           </div>
         ) : (
@@ -255,7 +259,12 @@ export function AnalysisPanel({
           ))}
         </tbody>
       </table>
-      <p className="muted small">{t.analysis.footer(analysis.depth)}</p>
+      <p className="muted small">
+        {analysis.engine
+          ? t.analysis.analysedWith(analysis.engine.bot.name, analysis.engine.bot.rating)
+          : t.analysis.analysedWithOrque}{" "}
+        {t.analysis.footer(analysis.depth)}
+      </p>
     </div>
   );
 }

@@ -94,6 +94,13 @@ def player_json(p: Player | None, time_class: str = DEFAULT_CLASS) -> dict | Non
     }
 
 
+def imported_players(imported: dict) -> list[dict]:
+    """Joueurs d'une partie importée : sans compte ici, pseudo et classement d'origine."""
+    return [{"id": "", "name": name, "country": None, "isBot": False, "rating": rating,
+             "provisional": False, "rank": None}
+            for name, rating in zip(imported["names"], imported["ratings"])]
+
+
 def me_json(p: Player) -> dict:
     return {
         "id": p.id,
@@ -143,6 +150,8 @@ def game_view(game: Game, viewer: Player | None, spectators: int = 0, match: dic
         legal = [move_json(m) for m in legal_moves(s)]
     tc_class = display_class(game.time_class)
     players = [player_json(store.players.get(pid) if pid else None, tc_class) for pid in game.players]
+    if game.imported:
+        players = imported_players(game.imported)
     # Partie amicale, bot ou locale : le rang du joueur n'est pas en jeu (une manche de
     # match tactique en ligne, si : c'est le match qui est classé). Un bot garde le sien :
     # c'est son emblème, et son classement bouge avec ses résultats.
@@ -166,7 +175,8 @@ def game_view(game: Game, viewer: Player | None, spectators: int = 0, match: dic
         "you": you,
         "createdBy": game.created_by,
         "botLevel": game.bot_level,
-        "timeControl": svc.time_control_label(game),
+        "timeControl": (game.imported or {}).get("timeControl") or svc.time_control_label(game),
+        "source": {"site": game.imported["site"], "url": game.imported["url"]} if game.imported else None,
         "timeClass": game.time_class,
         "rated": game.rated,
         "clock": ({

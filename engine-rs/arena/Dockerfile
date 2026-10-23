@@ -13,7 +13,8 @@ RUN mkdir /house && for l in 1 2 3 4 5; do \
       TRAVERSAL_LEVEL=$l cargo build --release --locked --target wasm32-unknown-unknown -p traversal-starter-bot && \
       cp target/wasm32-unknown-unknown/release/traversal_starter_bot.wasm /house/$l.wasm; \
     done
-RUN cd arena && cargo build --release --locked
+# `analysis` : bilans de partie avec orque (absent du dépôt public : sans la fonctionnalité).
+RUN cd arena && if [ -d ../analysis ]; then F="--features analysis"; fi && cargo build --release --locked $F
 
 FROM debian:bookworm-slim
 COPY --from=build /house /house

@@ -54,6 +54,17 @@ EN: dict[str, str] = {
     "Bot introuvable.": "Bot not found.",
     "Tâche inconnue ou déjà rendue.": "Unknown or already returned job.",
     "Partie refusée.": "Game rejected.",
+    "Bilan refusé.": "Review rejected.",
+    # Import de parties (traversalgame.com)
+    "Lien de partie traversalgame.com invalide.": "Invalid traversalgame.com game link.",
+    "traversalgame.com ne répond pas : réessaie plus tard.": "traversalgame.com is not responding: try again later.",
+    "L'import de parties n'est pas configuré.": "Game import is not configured.",
+    "Partie introuvable sur traversalgame.com.": "Game not found on traversalgame.com.",
+    "Cette partie n'est pas terminée.": "This game is not over.",
+    "Plateau non pris en charge.": "Unsupported board.",
+    "Mise en place des pièces non prise en charge.": "Unsupported piece setup.",
+    "Un coup de cette partie est illégal selon nos règles : partie non importée.":
+        "A move in this game is illegal under our rules: game not imported.",
     "Arène non configurée.": "Arena not configured.",
     "Authentification requise.": "Authentication required.",
     "Module introuvable.": "Module not found.",
