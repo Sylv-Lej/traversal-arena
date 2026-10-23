@@ -83,7 +83,7 @@ function Who({ p, side, score }: { p: PlayerCard | null; side: 1 | 2; score: num
   return (
     <div className={`matchWho p${side}`}>
       <span className="matchName">
-        <Flag code={p?.country} /> <strong>{p ? playerName(p, t) : "…"}</strong>
+        <strong>{p ? playerName(p, t) : "…"}</strong> <Flag code={p?.country} />
       </span>
       <span className="matchMeta">
         {p?.rank && <RankChip rank={p.rank} size={18} />}

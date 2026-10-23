@@ -79,8 +79,8 @@ export function PlayerBar({
         <div className="names">
           <div className="nameLine">
             <span className={`teamDot side${side}`} />
-            <Flag code={player?.country} />
             <strong>{name}</strong>
+            <Flag code={player?.country} />
             {player?.rank && <RankChip rank={player.rank} size={20} />}
             {player?.rating != null && (
               <span className="rating">

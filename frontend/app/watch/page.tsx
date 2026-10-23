@@ -19,8 +19,8 @@ function Who({ p, side }: { p: PlayerCard | null; side: 1 | 2 }) {
   return (
     <span className="liveWho">
       <span className={`teamDot side${side}`} />
-      <Flag code={p?.country} />
       <strong>{playerName(p, t)}</strong>
+      <Flag code={p?.country} />
       {p?.rank && <RankChip rank={p.rank} size={18} />}
       {p?.rating != null && <span className="muted small">{p.rating}</span>}
     </span>

@@ -110,13 +110,21 @@ def _pair(x: str, y: str) -> list[dict]:
     return [_new_job("game", x, y, terrain), _new_job("game", y, x, terrain)]
 
 
-async def submit(owner: Player, name: str, wasm_b64: str) -> dict:
+async def submit(owner: Player, name: str, wasm_b64: str, replaces: str | None = None) -> dict:
+    """Nouveau bot (`name`), ou nouvelle version d'un bot du joueur (`replaces` : l'id d'une
+    de ses versions, le nom vient de là)."""
     if owner.is_guest:
         raise ArenaError(403, "Crée un compte pour inscrire un bot.")
     if not owner.email_verified_at:
         # Une adresse confirmée par compte : multiplier les comptes (et donc les bots en
         # lice, les envois, les ententes entre bots) demande autant de vraies adresses.
         raise ArenaError(403, "Confirme ton adresse email pour inscrire un bot.")
+    if replaces:
+        async with store.engine.connect() as conn:
+            row = (await conn.execute(select(a.owner_id, a.name).where(a.id == replaces))).first()
+        if row is None or row.owner_id != owner.id:
+            raise ArenaError(404, "Bot introuvable.")
+        name = row.name
     name = (name or "").strip()
     if not NAME_RE.match(name):
         raise ArenaError(422, "Nom de bot invalide (3 à 24 caractères).")
@@ -145,6 +153,8 @@ async def submit(owner: Player, name: str, wasm_b64: str) -> dict:
             raise ArenaError(409, "Trop de bots en lice : retires-en un d'abord.")
         version = (await conn.execute(select(func.max(a.version)).where(
             a.owner_id == owner.id, a.name == name))).scalar() or 0
+        if version and not replaces:
+            raise ArenaError(409, "Tu as déjà un bot de ce nom : envoie le fichier comme mise à jour.")
         bot_id = "ar" + _id(10)  # jamais « bot… » : réservé aux bots maison (`_bot_to_move`)
         now = time.time()
         await conn.execute(pg_insert(db.players).values(
@@ -301,32 +311,29 @@ async def schedule() -> bool:
             return False
         if (await conn.execute(select(func.count()).select_from(db.arena_jobs))).scalar():
             return True  # un autre runner vient de remplir la file
-        owners = dict((await conn.execute(select(a.id, a.owner_id).where(a.status == "active"))).all())
+        active = list((await conn.execute(select(a.id).where(a.status == "active"))).scalars())
         ratings = dict((await conn.execute(select(r_.player_id, r_.rating))).all())
         recent = {pid: n for pid, n in (await conn.execute(text(
             "SELECT p, count(*) FROM (SELECT p1_id AS p FROM games WHERE mode = 'arena' AND ended_at > :s "
             "UNION ALL SELECT p2_id FROM games WHERE mode = 'arena' AND ended_at > :s) t GROUP BY p"),
             {"s": since})).all()}
-        jobs = plan_batch(owners, ratings, recent)
+        jobs = plan_batch(active, ratings, recent)
         jobs += await _calibration(conn)
         if jobs:
             await conn.execute(pg_insert(db.arena_jobs), jobs)
     return bool(jobs)
 
 
-def plan_batch(owners: dict[str, str], ratings: dict[str, float], recent: dict[str, int]) -> list[dict]:
+def plan_batch(active: list[str], ratings: dict[str, float], recent: dict[str, int]) -> list[dict]:
     """Les bots qui ont le moins joué ces dernières 24 h d'abord ; chacun contre un des
-    `NEIGHBOURS` participants (bots maison compris) de classement le plus proche.
-
-    Jamais deux bots du même joueur (`owners` : bot en lice -> auteur) : un bot ne peut
-    pas perdre exprès contre son jumeau pour le faire monter."""
-    active = list(owners)
+    `NEIGHBOURS` participants (bots maison compris) de classement le plus proche — deux
+    bots du même joueur compris."""
     pool = active + list(HOUSE)
     hungry = sorted((b for b in active if recent.get(b, 0) < DAILY_GAMES_PER_BOT), key=lambda b: recent.get(b, 0))
     jobs, busy = [], set()
     for b in hungry[:BATCH_PAIRS]:
         mine = ratings.get(b, PRIOR_RATING)
-        others = sorted((o for o in pool if o != b and o not in busy and owners.get(o) != owners[b]),
+        others = sorted((o for o in pool if o != b and o not in busy),
                         key=lambda o: abs(ratings.get(o, PRIOR_RATING) - mine))[:NEIGHBOURS]
         if not others:
             continue

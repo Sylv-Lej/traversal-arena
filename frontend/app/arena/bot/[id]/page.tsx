@@ -79,8 +79,8 @@ export default function ArenaBotPage({ params }: { params: Promise<{ id: string 
               ) : (
                 bot.author && (
                   <span className="botSub">
-                    {t.arena.by} <Flag code={bot.author.country} />{" "}
-                    <Link href={`/player/${bot.author.id}`}>{bot.author.name}</Link>
+                    {t.arena.by} <Link href={`/player/${bot.author.id}`}>{bot.author.name}</Link>{" "}
+                    <Flag code={bot.author.country} />
                   </span>
                 )
               )}
@@ -129,10 +129,17 @@ export default function ArenaBotPage({ params }: { params: Promise<{ id: string 
             {bot.size ? ` · ${t.arena.size(Math.ceil(bot.size / 1024))}` : ""}
           </p>
         )}
-        {mine && (bot.status === "active" || bot.status === "pending") && (
-          <button className="btn danger small" onClick={retire} disabled={busy}>
-            {t.arena.retire}
-          </button>
+        {mine && (
+          <div className="actions">
+            <Link href={`/arena/new?update=${bot.versions[0]?.id ?? bot.id}`} className="btn small">
+              {t.arena.update}
+            </Link>
+            {(bot.status === "active" || bot.status === "pending") && (
+              <button className="btn danger small" onClick={retire} disabled={busy}>
+                {t.arena.retire}
+              </button>
+            )}
+          </div>
         )}
       </div>
 

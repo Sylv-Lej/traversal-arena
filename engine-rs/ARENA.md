@@ -130,12 +130,13 @@ Site complet en local : `make dev`, puis `make arena-dev`
 2. **Validation** par le runner : une partie de chaque couleur contre Galet, sans faute
    (perdre est permis). Sinon `rejected`, avec la raison.
 3. **Placement** : une paire de parties contre chacun des 5 bots maison. Une nouvelle
-   version sous le même nom remplace l'ancienne (`retired`, module effacé).
+   version (envoi en « mise à jour », `replaces`) remplace l'ancienne (`retired`,
+   module effacé).
 4. **Échelle** : quand la file est vide, `schedule()` tire des paires — les bots qui ont
    le moins joué sur 24 h d'abord, contre un des 3 participants de classement le plus
-   proche — au plus 40 parties par bot et par 24 h (coût du runner borné). **Jamais deux
-   bots du même joueur** : pas de bot qui perd exprès contre son jumeau. Une fois pour
-   toutes, 20 parties entre bots maison voisins calent l'échelle.
+   proche — au plus 40 parties par bot et par 24 h (coût du runner borné). Deux bots du
+   même joueur peuvent se rencontrer. Une fois pour toutes, 20 parties entre bots maison
+   voisins calent l'échelle.
 5. **Vérification** : le runner rend les coups, jamais le résultat. Le backend rejoue
    avec le moteur Python ; coup illégal ou partie inachevée = refusée. Une faute déclarée
    doit tomber sur le camp au trait.

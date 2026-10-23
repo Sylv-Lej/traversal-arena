@@ -46,15 +46,17 @@ async def mine(me: Player = Depends(current_player)):
 
 
 class NewBot(BaseModel):
-    name: str = Field(max_length=24)
+    name: str = Field(default="", max_length=24)
     # Le .wasm en base64 (1 Mo au plus, soit ~1,4 Mo encodé).
     wasm: str = Field(max_length=(arena.MAX_WASM_BYTES * 4) // 3 + 8)
+    # Mise à jour : id d'une version du bot à remplacer (le nom vient de là).
+    replaces: str | None = Field(default=None, max_length=16)
 
 
 @public.post("/bots")
 async def submit(body: NewBot, me: Player = Depends(current_player)):
     try:
-        return await arena.submit(me, body.name, body.wasm)
+        return await arena.submit(me, body.name, body.wasm, body.replaces)
     except arena.ArenaError as exc:
         raise _http(exc) from exc
 

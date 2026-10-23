@@ -2,10 +2,10 @@
 
 import { Loader } from "@/components/ui/Loader";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import { api, ApiError } from "@/lib/api";
-import type { ArenaBot, ArenaInfo } from "@/lib/arena";
+import { arenaName, type ArenaBot, type ArenaInfo, type MyBot } from "@/lib/arena";
 import { useT } from "@/lib/i18n/client";
 import { VerifyNotice } from "@/components/ui/VerifyNotice";
 import { useMe } from "@/lib/me";
@@ -41,7 +41,15 @@ async function toBase64(file: File): Promise<string> {
   return btoa(bin);
 }
 
-export default function NewBot() {
+export default function NewBotPage() {
+  return (
+    <Suspense>
+      <NewBot />
+    </Suspense>
+  );
+}
+
+function NewBot() {
   const t = useT();
   const router = useRouter();
   const { me, ready } = useMe();
@@ -50,10 +58,17 @@ export default function NewBot() {
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Mise à jour : nouvelle version d'un de mes bots (`?update=<id>` depuis sa fiche).
+  const [mine, setMine] = useState<MyBot[]>([]);
+  const [replaces, setReplaces] = useState<string | null>(useSearchParams().get("update"));
+  const updating = replaces !== null;
 
   useEffect(() => {
     api<ArenaInfo>("arena/info").then(setInfo).catch(() => setInfo(null));
   }, []);
+  useEffect(() => {
+    if (ready && me && !me.isGuest) api<MyBot[]>("arena/mine").then(setMine).catch(() => setMine([]));
+  }, [ready, me]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,7 +80,8 @@ export default function NewBot() {
     setBusy(true);
     setError(null);
     try {
-      const bot = await api<ArenaBot>("arena/bots", { body: { name: name.trim(), wasm: await toBase64(file) } });
+      const body = updating ? { replaces } : { name: name.trim() };
+      const bot = await api<ArenaBot>("arena/bots", { body: { ...body, wasm: await toBase64(file) } });
       router.push(`/arena/bot/${bot.id}`);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t.common.errors.generic);
@@ -97,16 +113,51 @@ export default function NewBot() {
         ) : (
           <form className="botForm" onSubmit={submit}>
             <label className="field">
-              <span>{t.arena.name}</span>
-              <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t.arena.namePlaceholder} maxLength={24} required />
-              <small className="muted">{t.arena.nameHint}</small>
-            </label>
-            <label className="field">
               <span>{t.arena.file}</span>
               <input type="file" accept=".wasm,application/wasm" onChange={(e) => setFile(e.target.files?.[0] ?? null)} required />
             </label>
+            {file && mine.length > 0 && (
+              <div className="field">
+                <span>{t.arena.kind}</span>
+                <div className="segmented">
+                  <button type="button" className={updating ? "" : "on"} onClick={() => setReplaces(null)}>
+                    {t.arena.kindNew}
+                  </button>
+                  <button type="button" className={updating ? "on" : ""} onClick={() => setReplaces(replaces ?? "")}>
+                    {t.arena.kindUpdate}
+                  </button>
+                </div>
+              </div>
+            )}
+            {file &&
+              (updating && mine.length > 0 ? (
+                <fieldset className="field">
+                  <span>{t.arena.pickBot}</span>
+                  <ul className="versionList">
+                    {mine.map((b) => (
+                      <li key={b.id}>
+                        <label className="check grow">
+                          <input type="radio" name="replaces" checked={replaces === b.id} onChange={() => setReplaces(b.id)} />
+                          <span className="botName">{arenaName(b, t)}</span>
+                        </label>
+                        <span className={`chip ${b.status}`}>{t.arena.status[b.status]}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <small className="muted">{t.arena.updateHint}</small>
+                </fieldset>
+              ) : (
+                <label className="field">
+                  <span>{t.arena.name}</span>
+                  <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t.arena.namePlaceholder} maxLength={24} required />
+                  <small className="muted">{t.arena.nameHint}</small>
+                </label>
+              ))}
             {error && <p className="error">{error}</p>}
-            <button className="btn primary" disabled={busy || !file || name.trim().length < 3}>
+            <button
+              className="btn primary"
+              disabled={busy || !file || (updating ? !mine.some((b) => b.id === replaces) : name.trim().length < 3)}
+            >
               {busy ? t.arena.sending : t.arena.send}
             </button>
             {info && <small className="muted">{t.arena.limitsNote(info.maxLiveBots)}</small>}

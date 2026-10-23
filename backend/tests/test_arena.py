@@ -49,8 +49,8 @@ async def claim(client):
     return r.json()["job"]
 
 
-async def active_bot(client, h, name="Alpha"):
-    r = await client.post("/api/arena/bots", json={"name": name, "wasm": WASM}, headers=h)
+async def active_bot(client, h, name="Alpha", replaces=None):
+    r = await client.post("/api/arena/bots", json={"name": name, "wasm": WASM, "replaces": replaces}, headers=h)
     assert r.status_code == 200, r.text
     bot = r.json()
     job = await claim(client)
@@ -144,7 +144,14 @@ async def test_validation_placement_and_leaderboard(client):
 async def test_new_version_replaces_the_old_one(client):
     h = await registered(client)
     v1 = await active_bot(client, h)
-    v2 = await active_bot(client, h)
+    # Même nom sans dire « mise à jour » : refusé (pas de nouvelle version par mégarde).
+    r = await client.post("/api/arena/bots", json={"name": "Alpha", "wasm": WASM}, headers=h)
+    assert r.status_code == 409
+    # Seul l'auteur peut envoyer une version d'un bot.
+    other = await registered(client, "autre@example.com")
+    r = await client.post("/api/arena/bots", json={"wasm": WASM, "replaces": v1}, headers=other)
+    assert r.status_code == 404
+    v2 = await active_bot(client, h, name="", replaces=v1)
     view = (await client.get(f"/api/arena/bots/{v1}", headers=KEY)).json()
     assert view["status"] == "retired"
     assert [v["version"] for v in view["versions"]] == [2, 1]
@@ -215,13 +222,10 @@ async def test_oversized_bodies_are_refused_before_reading(client):
     assert r.status_code == 413
 
 
-def test_a_player_s_bots_never_meet():
-    owners = {"a1": "alice", "a2": "alice", "b1": "bob"}
-    ratings = {"a1": 1500, "a2": 1500, "b1": 2400}  # a1 et a2 sont voisins, b1 très loin
-    for _ in range(50):
-        for job in arena.plan_batch(owners, ratings, {}):
-            pair = {job["red_id"], job["blue_id"]}
-            assert pair != {"a1", "a2"}
+def test_a_player_s_bots_can_meet():
+    ratings = {"a1": 1500, "a2": 1500, "b1": 2400}  # a1 et a2 (même auteur) sont voisins
+    pairs = [{job["red_id"], job["blue_id"]} for _ in range(50) for job in arena.plan_batch(["a1", "a2", "b1"], ratings, {})]
+    assert {"a1", "a2"} in pairs
 
 
 def test_division_waits_for_placement():

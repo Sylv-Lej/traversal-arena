@@ -86,7 +86,7 @@ export function PlayerProfile({ id, children }: { id: string; children?: React.R
           <Avatar name={name} size={72} />
           <div>
             <h1>
-              <Flag code={p.country} size={22} /> {name}
+              {name} <Flag code={p.country} size={22} />
             </h1>
             <Link className="small" href="/ranks">
               {t.profile.howRanksWork}
@@ -115,7 +115,7 @@ export function PlayerProfile({ id, children }: { id: string; children?: React.R
                   <Link href={`/game/${g.id}`}>
                     <span className={`pill ${res === "win" ? "win" : res === "loss" ? "loss" : ""}`}>{t.profile.result[res]}</span>
                     <span className="grow">
-                      <Flag code={opp?.country} /> {t.profile.vs(playerName(opp, t))}{" "}
+                      {t.profile.vs(playerName(opp, t))} <Flag code={opp?.country} />{" "}
                       <small className="muted">
                         · {t.common.terrains[g.terrain]?.name} · {g.timeControl ?? t.profile.noClock}
                         {g.result ? ` · ${t.common.reasons[g.result.reason] ?? ""}` : ""}

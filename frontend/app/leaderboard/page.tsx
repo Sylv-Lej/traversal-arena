@@ -84,8 +84,8 @@ export default function Leaderboard() {
                     <td>
                       <Link href={`/player/${r.id}`} className="playerCell">
                         <Avatar name={r.name} size={26} />
-                        <Flag code={r.country} />
                         {r.name}
+                        <Flag code={r.country} />
                       </Link>
                     </td>
                     <td>
@@ -127,8 +127,8 @@ export default function Leaderboard() {
                     <td>
                       <Link href={`/player/${r.id}`} className="playerCell">
                         <Avatar name={name} size={26} />
-                        <Flag code={r.country} />
                         {name}
+                        <Flag code={r.country} />
                       </Link>
                     </td>
                     <td>

@@ -93,8 +93,8 @@ function Frame({ children, fullSite }: { children: React.ReactNode; fullSite: bo
           {me && (
             <Link href="/profile" className="meChip">
               <Avatar name={me.name} size={28} />
-              <Flag code={me.country} />
               <span>{me.name}</span>
+              <Flag code={me.country} />
             </Link>
           )}
           {me?.isGuest && (

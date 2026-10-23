@@ -166,7 +166,7 @@ export default function RushPage() {
                   {board.map((r) => (
                     <li key={r.id}>
                       <span>
-                        {r.rank}. <Flag code={r.country} /> {r.name}
+                        {r.rank}. {r.name} <Flag code={r.country} />
                       </span>
                       <b>{r.score}</b>
                     </li>

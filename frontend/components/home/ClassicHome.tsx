@@ -54,7 +54,7 @@ function RecentGames() {
                     t.home.localGame
                   ) : (
                     <>
-                      <Flag code={opp?.country} /> {t.home.vs(playerName(opp, t))}
+                      {t.home.vs(playerName(opp, t))} <Flag code={opp?.country} />
                     </>
                   )}
                   <small className="muted">

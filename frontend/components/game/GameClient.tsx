@@ -723,7 +723,7 @@ export function GameClient({ id }: { id: string }) {
             {[1, 2].map((s) => (
               <div key={s} className={`endPlayer side${s}`}>
                 <strong>
-                  <Flag code={playerOf(s as Side)?.country} /> {nameOf(s as Side)}
+                  {nameOf(s as Side)} <Flag code={playerOf(s as Side)?.country} />
                 </strong>
                 <span className="big">★ {view.position.scores[s - 1]}</span>
                 {view.ratingChange && (

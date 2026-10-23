@@ -94,7 +94,7 @@ export default function Arena() {
                             ) : (
                               r.author && (
                                 <span className="botSub">
-                                  {t.arena.by} <Flag code={r.author.country} /> {r.author.name}
+                                  {t.arena.by} {r.author.name} <Flag code={r.author.country} />
                                 </span>
                               )
                             )}

@@ -49,6 +49,7 @@ EN: dict[str, str] = {
     "Ce n'est pas un module WebAssembly (.wasm).": "This is not a WebAssembly module (.wasm).",
     "Trop d'envois aujourd'hui. Réessaie demain.": "Too many uploads today. Try again tomorrow.",
     "Ce nom de bot est déjà pris.": "This bot name is already taken.",
+    "Tu as déjà un bot de ce nom : envoie le fichier comme mise à jour.": "You already have a bot with this name: upload the file as an update.",
     "Trop de bots en lice : retires-en un d'abord.": "Too many bots competing: retire one first.",
     "Bot introuvable.": "Bot not found.",
     "Tâche inconnue ou déjà rendue.": "Unknown or already returned job.",
