@@ -26,7 +26,7 @@ const API_KEY = process.env.API_KEY ?? "";
 const COOKIE = "tv_session";
 // Liste blanche : seules ces routes de l'API sont exposées au navigateur (pas la
 // création de joueur, réservée au relais lui-même, ni l'API du runner de l'arène).
-const ALLOWED = /^(players\/[\w-]+(\/history)?|me|me\/games|games|games\/[\w-]+(\/[\w-]+){0,2}|matches|matches\/[\w-]+(\/[\w-]+)?|puzzles(\/[\w-]+){1,3}|lobby|lobby\/seek|leaderboard|ranks|terrain|sandbox|arena\/(info|leaderboard|showcase|mine|bots|bots\/[\w-]+(\/retire)?)|auth\/(login|signup|logout|forgot|reset|password|verify|resend))$/;
+const ALLOWED = /^(players\/[\w-]+(\/history)?|me|me\/games|games|games\/[\w-]+(\/[\w-]+){0,2}|matches|matches\/[\w-]+(\/[\w-]+)?|puzzles(\/[\w-]+){1,3}|lobby|lobby\/seek|leaderboard|ranks|terrain|sandbox|imports(\/status)?|arena\/(info|leaderboard|showcase|mine|bots|bots\/[\w-]+(\/retire)?)|auth\/(login|signup|logout|forgot|reset|password|verify|resend))$/;
 const COOKIE_OPTS = {
   httpOnly: true,
   sameSite: "lax" as const,
