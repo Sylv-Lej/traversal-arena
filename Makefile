@@ -216,7 +216,7 @@ redeploy: build push apply ## Redéploie le code (utiliser TAG=$$(git rev-parse 
 	@echo "ℹ️  avec TAG=latest, Scaleway ne redéploie pas : passe un TAG unique."
 
 # --- Arène : dev local et jeton du runner ------------------------------------
-.PHONY: arena-dev arena-rotate-token arena-round-robin arena-round-robin-prod
+.PHONY: arena-dev arena-rotate-token arena-round-robin arena-round-robin-prod arena-boost arena-runs
 arena-dev: ## Joue les parties de l'arène contre le backend local (make dev), en boucle
 	docker build -f engine-rs/arena/Dockerfile -t traversal-arena engine-rs
 	docker run --rm --add-host=host.docker.internal:host-gateway -e ARENA_TOKEN="$(ARENA_TOKEN)" \
@@ -235,6 +235,22 @@ arena-round-robin: secrets ## GAMES parties (20) entre chaque paire de bots des 
 arena-round-robin-prod: secrets ## Idem sur la base de PROD (joué par le Job aux prochains passages)
 	@read -p "Round-robin de $(GAMES) parties par duel sur la PROD ? [o/N] " ok && [ "$$ok" = o ]
 	@set -e; $(RESOLVE_DB); export DATABASE_URL; $(ROUND_ROBIN)
+
+# Parallèle à la demande : N passages du Job en plus du cron (1 vCPU chacun). Le backend
+# distribue chaque tâche à un seul runner (SKIP LOCKED) : 4 runners vident la file ~4 fois
+# plus vite pour le même total de vCPU-s. Le fuel, pas l'horloge, borne les bots : jouer
+# en parallèle ne change aucun résultat.
+N ?= 4
+SCW = docker run --rm -e SCW_ACCESS_KEY -e SCW_SECRET_KEY -e SCW_DEFAULT_PROJECT_ID \
+	  -e SCW_DEFAULT_ORGANIZATION_ID -e SCW_DEFAULT_REGION=$(REGION) scaleway/cli:v2.65.1
+ARENA_JOB_ID = $$($(TF) output -raw arena_job_id | sed 's|.*/||')
+
+arena-boost: secrets ## Lance N (4) runners de l'arène en parallèle, en plus du cron (vider la file vite)
+	@set -e; id=$(ARENA_JOB_ID); $(SCW) jobs definition start $$id replicas=$(N) -o human >/dev/null; \
+	  echo "🚀 $(N) runner(s) lancé(s) (25 min au plus chacun) — suivi : make arena-runs"
+
+arena-runs: secrets ## Passages du runner de l'arène en cours
+	@set -e; id=$(ARENA_JOB_ID); $(SCW) jobs run list job-definition-id=$$id states.0=queued states.1=running
 
 # Fuite (ou doute) : un nouveau jeton aléatoire est tiré et posé partout en un `apply`
 # (secret du backend, Secret Manager, référence du Job). L'ancien ne vaut plus rien dès

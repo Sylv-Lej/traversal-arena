@@ -9,10 +9,12 @@ export interface Settings {
   showHeights: boolean;
   sound: boolean;
   confirmAttacks: boolean;
+  /** Plateau vu de dessus en 2D (hauteurs en couleur) au lieu de la scène 3D. */
+  board2d: boolean;
 }
 
 const KEY = "traversal.settings";
-const DEFAULTS: Settings = { quality: "auto", showHeights: false, sound: true, confirmAttacks: false };
+const DEFAULTS: Settings = { quality: "auto", showHeights: false, sound: true, confirmAttacks: false, board2d: false };
 
 let current: Settings = DEFAULTS;
 let loaded = false;

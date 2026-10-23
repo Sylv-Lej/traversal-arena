@@ -14,7 +14,8 @@ import { useT } from "@/lib/i18n/client";
 import type { Dict } from "@/lib/i18n/dict";
 import { playerName, rankLabel } from "@/lib/i18n/helpers";
 import { sounds } from "@/lib/sound";
-import { useSettings } from "@/lib/settings";
+import { updateSettings, useSettings } from "@/lib/settings";
+import { NO_ANNOTATIONS, hasAnnotations, toggleAnnotation, type Annotations } from "@/lib/annotations";
 import type { LegalMove, MoveClass, MoveRecord, Position, Side } from "@/lib/types";
 import { PlayerBar } from "./PlayerBar";
 import { MoveList } from "./MoveList";
@@ -25,6 +26,8 @@ import { LpBar, RankEmblem, rankValue } from "@/components/ui/Rank";
 import type { Rank } from "@/lib/types";
 import {
   IconCenter,
+  IconClose,
+  IconPen,
   IconEye,
   IconFirst,
   IconFlag,
@@ -41,6 +44,11 @@ import type { CameraView } from "@/components/board3d/Board3D";
 import { botSkin, type SkinId } from "@/components/board3d/skins";
 
 const Board3D = dynamic(() => import("@/components/board3d/Board3D"), {
+  ssr: false,
+  loading: () => <BoardLoading />,
+});
+
+const Board2D = dynamic(() => import("@/components/board2d/Board2D"), {
   ssr: false,
   loading: () => <BoardLoading />,
 });
@@ -146,6 +154,9 @@ export function GameClient({ id }: { id: string }) {
   const [preview, setPreview] = useState<LegalMove | null>(null);
   const [tab, setTab] = useState<"moves" | "info" | "review">("moves");
   const [showHint, setShowHint] = useState(true);
+  // Flèches et cercles (analyse, spectateur) : effacés à chaque changement de position.
+  const [ann, setAnn] = useState<Annotations>(NO_ANNOTATIONS);
+  const [drawMode, setDrawMode] = useState(false);
   const finished = view?.status === "finished" && (view?.moves.length ?? 0) > 0;
   const review = useAnalysis(id, finished);
   const marks = useMemo(() => {
@@ -229,6 +240,7 @@ export function GameClient({ id }: { id: string }) {
       if (e.key === "ArrowLeft") goto((viewPly ?? moveCount) - 1);
       if (e.key === "ArrowRight") goto((viewPly ?? moveCount) + 1);
       if (e.key === "f") setFlip((f) => !f);
+      if (e.key === "d") updateSettings({ board2d: !settings.board2d });
       const n = Number(e.key);
       if (n >= 1 && n <= CAMERA_VIEWS.length) {
         setCamView(CAMERA_VIEWS[n - 1]);
@@ -237,9 +249,11 @@ export function GameClient({ id }: { id: string }) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [goto, viewPly, moveCount]);
+  }, [goto, viewPly, moveCount, settings.board2d]);
 
   const reviewing = viewPly !== null && positions !== null && positions[viewPly] !== undefined;
+  const shownPos = viewPly ?? moveCount;
+  useEffect(() => setAnn(NO_ANNOTATIONS), [shownPos]);
   const position = reviewing ? positions![viewPly!] : view?.position;
   const lastMove = view ? (reviewing ? (viewPly! > 0 ? view.moves[viewPly! - 1] : null) : view.moves[view.moves.length - 1] ?? null) : null;
 
@@ -306,6 +320,9 @@ export function GameClient({ id }: { id: string }) {
   }
 
   const isPlayer = mySides.length > 0;
+  // Annotations comme sur chess.com, hors partie en cours : analyse, revue des coups, spectateur.
+  const annotate = !isPlayer || reviewing || view.status === "finished" || view.status === "aborted";
+  const Board = settings.board2d ? Board2D : Board3D;
   // Contre un bot, ses pièces portent l'habillage de son niveau.
   const botSkins: Partial<Record<Side, SkinId>> | undefined =
     view.mode === "bot" ? { [view.players[0]?.isBot ? 1 : 2]: botSkin(view.botLevel) } : undefined;
@@ -456,7 +473,7 @@ export function GameClient({ id }: { id: string }) {
       <section className="boardCol">
         {bar(top)}
         <div className="boardFrame">
-          <Board3D
+          <Board
             heights={heights}
             terrainMode={view.terrain.mode}
             pieces={position.pieces}
@@ -472,10 +489,22 @@ export function GameClient({ id }: { id: string }) {
             onPreview={setPreview}
             hint={hint}
             skins={botSkins}
+            annotations={annotate ? ann : undefined}
+            onAnnotate={annotate ? (from, to, color) => setAnn((a) => toggleAnnotation(a, from, to, color)) : undefined}
+            onClearAnnotations={() => setAnn(NO_ANNOTATIONS)}
+            drawMode={annotate && drawMode}
           />
           {curEval && <EvalBar e={curEval} redAtBottom={orientation === 1} />}
           <div className="viewBar" role="group" aria-label={t.game.cameraAria}>
-            {CAMERA_VIEWS.map((v, i) => (
+            <button
+              className={`dimToggle ${settings.board2d ? "on" : ""}`}
+              title={settings.board2d ? t.game.board3dTitle : t.game.board2dTitle}
+              aria-pressed={settings.board2d}
+              onClick={() => updateSettings({ board2d: !settings.board2d })}
+            >
+              2D
+            </button>
+            {!settings.board2d && CAMERA_VIEWS.map((v, i) => (
               <button
                 key={v}
                 className={camView === v ? "on" : ""}
@@ -494,9 +523,21 @@ export function GameClient({ id }: { id: string }) {
               <IconFlip size={18} />
             </button>
 
-            <button className="iconBtn" title={t.game.recenter} onClick={() => setRecenter((r) => r + 1)}>
-              <IconCenter size={18} />
-            </button>
+            {!settings.board2d && (
+              <button className="iconBtn" title={t.game.recenter} onClick={() => setRecenter((r) => r + 1)}>
+                <IconCenter size={18} />
+              </button>
+            )}
+            {annotate && (
+              <button className={`iconBtn ${drawMode ? "on" : ""}`} title={t.game.drawArrows} aria-pressed={drawMode} onClick={() => setDrawMode((d) => !d)}>
+                <IconPen size={18} />
+              </button>
+            )}
+            {annotate && hasAnnotations(ann) && (
+              <button className="iconBtn" title={t.game.clearArrows} onClick={() => setAnn(NO_ANNOTATIONS)}>
+                <IconClose size={18} />
+              </button>
+            )}
           </div>
           {chargeFlash?.combat && (
             <div className="chargeFlash" key={chargeFlash.ply} role="status">

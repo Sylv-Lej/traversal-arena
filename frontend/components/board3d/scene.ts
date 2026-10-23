@@ -158,7 +158,4 @@ export const PEDESTAL = (() => {
   return g;
 })();
 
-export const TEAM = {
-  1: { main: "#e5484d", dark: "#7a1e22", glow: "#ff8a8d" },
-  2: { main: "#3e7bfa", dark: "#1a3878", glow: "#8db4ff" },
-} as const;
+export { TEAM } from "@/components/board2d/colors";

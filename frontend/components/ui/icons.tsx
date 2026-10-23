@@ -45,6 +45,7 @@ export const IconNext = I("M9 18l6-6-6-6");
 export const IconFirst = I("M11 18l-6-6 6-6M18 18l-6-6 6-6");
 export const IconLast = I("M13 18l6-6-6-6M6 18l6-6-6-6");
 export const IconClose = I("M6 6l12 12M18 6L6 18");
+export const IconPen = I("M4 20l4-1 11-11-3-3L5 16l-1 4zM14 7l3 3");
 // Arène des bots : un bloc de code entre chevrons.
 export const IconChart = I("M3 20h18M4 16l5-6 4 3 7-8");
 export const IconArena = I("M8 7l-5 5 5 5M16 7l5 5-5 5M14 4l-4 16");

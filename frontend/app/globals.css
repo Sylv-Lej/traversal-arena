@@ -696,6 +696,14 @@ input:focus, select:focus { outline: 2px solid var(--green); outline-offset: 0; 
 @media (max-width: 380px) { .viewBar button { min-width: 30px; padding: 0 6px; font-size: 11px; } }
 .boardFrame .evalBar { top: 48px; }
 
+/* Plateau 2D (vue de dessus en SVG) : marge en haut pour les boutons posés par-dessus. */
+.board2d { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.board2d svg { display: block; width: 100%; height: 100%; box-sizing: border-box; padding: 52px 8px 8px; touch-action: none; }
+.boardFrame:has(.evalBar) .board2d svg { padding-left: 40px; }
+@media (max-width: 999px) { .board2d svg { padding: 50px 2px 2px; } }
+.boardFrame:has(.board2d) .boardTools { flex-direction: row; }
+.board2d .tapConfirm { z-index: 5; }
+
 /* Drapeau du pays représenté, à côté des pseudos. */
 .flag {
   display: inline-block; flex: none; vertical-align: -0.12em; border-radius: 2px; object-fit: cover;

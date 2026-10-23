@@ -140,6 +140,8 @@ Site complet en local : `make dev`, puis `make arena-dev`
    **Round-robin**, à la main seulement : `make arena-round-robin GAMES=20` (dev) ou
    `make arena-round-robin-prod` met en file GAMES parties entre chaque paire de bots des
    joueurs en lice (bots maison exclus), ronde par ronde, hors plafond quotidien.
+   Pour vider la file plus vite : `make arena-boost N=4` lance N passages du Job en plus
+   du cron (1 vCPU chacun, même total de vCPU-s) ; `make arena-runs` les liste.
 5. **Vérification** : le runner rend les coups, jamais le résultat. Le backend rejoue
    avec le moteur Python ; coup illégal ou partie inachevée = refusée. Une faute déclarée
    doit tomber sur le camp au trait.

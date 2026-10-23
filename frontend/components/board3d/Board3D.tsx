@@ -13,6 +13,7 @@ import type { SkinId } from "./skins";
 import { FLOOR, sqWorld, topY } from "./scene";
 import type { LegalMove, MoveRecord, PieceT, Side } from "@/lib/types";
 import { resolveQuality, useSettings } from "@/lib/settings";
+import { ANN_COLORS, annColor, hasAnnotations, type AnnColor, type Annotations } from "@/lib/annotations";
 import { useT } from "@/lib/i18n/client";
 
 type BubbleInfo = { attack: number; defense: number; charge: boolean } | null;
@@ -40,6 +41,12 @@ export interface Board3DProps {
   skins?: Partial<Record<Side, SkinId>>;
   /** Coup conseillé par l'analyse, tracé en doré par-dessus la position. */
   hint?: { path: number[]; kind: string; owner: Side } | null;
+  /** Flèches et cercles dessinés par le joueur (clic droit glissé, cf. lib/annotations). */
+  annotations?: Annotations;
+  onAnnotate?: (from: number, to: number, color: AnnColor) => void;
+  onClearAnnotations?: () => void;
+  /** Mode dessin (écrans tactiles) : le doigt trace des flèches au lieu de jouer ou tourner. */
+  drawMode?: boolean;
   onMove?: (move: LegalMove) => void;
   onPreview?: (move: LegalMove | null) => void;
   className?: string;
@@ -69,6 +76,8 @@ const PORTRAIT = { elev: 22, fitH: 1.7 };
  * translation, molette = zoom ; au doigt, un doigt = translation, deux doigts = rotation
  * et pincement. Le centre de la vue reste au-dessus du plateau (± PAN_LIMIT). */
 const MOUSE_BUTTONS = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.PAN, RIGHT: THREE.MOUSE.PAN };
+// Annotations actives : le clic droit trace des flèches, la translation reste au clic molette.
+const MOUSE_BUTTONS_ANNOTATE = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.PAN, RIGHT: -1 as THREE.MOUSE };
 const TOUCHES = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE };
 const PAN_LIMIT = 5;
 
@@ -79,6 +88,8 @@ function CameraRig({
   intro,
   recenterKey,
   focus,
+  annotate,
+  locked,
 }: {
   orientation: Side;
   view: CameraView;
@@ -86,6 +97,8 @@ function CameraRig({
   intro: boolean;
   recenterKey: number;
   focus?: Board3DProps["focus"];
+  annotate: boolean;
+  locked: boolean;
 }) {
   const { camera, size, invalidate } = useThree();
   const controls = useRef<OrbitControlsImpl>(null);
@@ -164,9 +177,10 @@ function CameraRig({
     <OrbitControls
       ref={controls}
       makeDefault
+      enabled={!locked}
       enablePan
       screenSpacePanning={false}
-      mouseButtons={MOUSE_BUTTONS}
+      mouseButtons={annotate ? MOUSE_BUTTONS_ANNOTATE : MOUSE_BUTTONS}
       touches={TOUCHES}
       onChange={clampPan}
       enableDamping
@@ -329,6 +343,44 @@ function PathLine({
   return <Line points={pts} color={color} lineWidth={3} dashed dashSize={0.18} gapSize={0.1} transparent opacity={0.9} />;
 }
 
+/** Flèche d'annotation : tendue au-dessus des deux cases, toujours visible (dessinée
+ * par-dessus les pièces et le relief), pointe couchée pour rester lisible en vue 3/4. */
+function AnnotationArrow({ from, to, color, heights, opacity = 0.85 }: { from: number; to: number; color: string; heights: number[]; opacity?: number }) {
+  const { pts, tip, quat } = useMemo(() => {
+    const a = sqWorld(from, heights);
+    const b = sqWorld(to, heights);
+    a.y += 0.5;
+    b.y += 0.5;
+    const dir = b.clone().sub(a).normalize();
+    const head = 0.5;
+    const tipPos = b.clone().addScaledVector(dir, -head / 2 - 0.08);
+    return {
+      pts: [a.clone().addScaledVector(dir, 0.15), tipPos.clone().addScaledVector(dir, -head * 0.4)],
+      tip: tipPos,
+      quat: new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir),
+    };
+  }, [from, to, heights]);
+  return (
+    <group renderOrder={10}>
+      <Line points={pts} color={color} lineWidth={8} transparent opacity={opacity} depthTest={false} renderOrder={10} />
+      <mesh position={tip} quaternion={quat} raycast={() => null} renderOrder={10}>
+        <coneGeometry args={[0.24, 0.5, 20]} />
+        <meshBasicMaterial color={color} transparent opacity={opacity} depthTest={false} toneMapped={false} />
+      </mesh>
+    </group>
+  );
+}
+
+function AnnotationCircle({ sq, color, heights }: { sq: number; color: string; heights: number[] }) {
+  const p = sqWorld(sq, heights);
+  return (
+    <mesh position={[p.x, p.y + 0.03, p.z]} rotation={[-Math.PI / 2, 0, 0]} raycast={() => null} renderOrder={4}>
+      <ringGeometry args={[0.38, 0.47, 40]} />
+      <meshBasicMaterial color={color} transparent opacity={0.9} depthWrite={false} toneMapped={false} />
+    </mesh>
+  );
+}
+
 /**
  * Bulle « ⚔ 3 vs 3 » au-dessus de la cible. Élément DOM ordinaire posé par-dessus le
  * canvas et déplacé à chaque image par projection caméra — plutôt que <Html> de drei,
@@ -382,6 +434,10 @@ function Scene(
     autoSelect = null,
     autoPreview = null,
     hint = null,
+    annotations,
+    onAnnotate,
+    onClearAnnotations,
+    drawMode = false,
     skins,
     onMove,
     onPreview,
@@ -400,6 +456,24 @@ function Scene(
   const [armed, setArmed] = useState<number | "exit" | null>(null);
   const [touchArmed, setTouchArmed] = useState(false); // armé au doigt : « touchez encore »
   const [busy, setBusy] = useState(false);
+  // Flèche en cours de tracé (clic droit maintenu, ou doigt en mode dessin).
+  const [drag, setDrag] = useState<{ from: number; to: number; color: AnnColor } | null>(null);
+  const dragRef = useRef(drag);
+  dragRef.current = drag;
+  useEffect(() => {
+    if (!drag) return;
+    const up = () => {
+      const d = dragRef.current;
+      if (d) onAnnotate?.(d.from, d.to, d.color);
+      setDrag(null);
+    };
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
+    return () => {
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
+    };
+  }, [drag !== null, onAnnotate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const movesByPiece = useMemo(() => {
     const m = new Map<string, LegalMove[]>();
@@ -464,6 +538,27 @@ function Scene(
     play(move);
   }
 
+  function hoverSquare(sq: number | null) {
+    const d = dragRef.current;
+    if (d) {
+      if (sq !== null && sq !== d.to) setDrag({ ...d, to: sq });
+      return;
+    }
+    if (interactive) setHoverSq(sq);
+  }
+
+  function pointerDown(sq: number, e: ThreeEvent<PointerEvent>) {
+    const ev = e.nativeEvent;
+    if (onAnnotate && (ev.button === 2 || (drawMode && ev.button === 0))) {
+      e.stopPropagation();
+      setDrag({ from: sq, to: sq, color: annColor(ev) });
+      return;
+    }
+    if (ev.button !== 0) return;
+    if (hasAnnotations(annotations)) onClearAnnotations?.();
+    pickSquare(sq, ev.pointerType);
+  }
+
   function pickSquare(sq: number, pointerType: string) {
     if (!interactive || busy) return;
     const move = bySquare.get(sq);
@@ -500,6 +595,8 @@ function Scene(
         intro={intro}
         recenterKey={recenterKey}
         focus={focus}
+        annotate={!!onAnnotate}
+        locked={drawMode && !!onAnnotate}
       />
 
       <hemisphereLight args={["#dfe8ff", "#3a2f25", 0.55]} />
@@ -535,8 +632,8 @@ function Scene(
         showHeights={showHeights}
         shadows={shadows}
         colorOffset={heightOffset}
-        onSquareDown={(sq, e: ThreeEvent<PointerEvent>) => pickSquare(sq, e.nativeEvent.pointerType)}
-        onSquareHover={interactive ? setHoverSq : undefined}
+        onSquareDown={pointerDown}
+        onSquareHover={interactive || onAnnotate ? hoverSquare : undefined}
       />
 
       {lastSquares.map((sq) => (
@@ -591,9 +688,19 @@ function Scene(
         intro={intro}
         onAnimating={setBusy}
         skins={skins}
-        onHover={interactive ? setHoverSq : undefined}
-        onPieceDown={(p, e) => pickSquare(p.sq, e.nativeEvent.pointerType)}
+        onHover={interactive || onAnnotate ? hoverSquare : undefined}
+        onPieceDown={(p, e) => pointerDown(p.sq, e)}
       />
+
+      {annotations?.circles.map((a) => (
+        <AnnotationCircle key={`ac${a.sq}`} sq={a.sq} color={ANN_COLORS[a.color]} heights={heights} />
+      ))}
+      {annotations?.arrows.map((a) => (
+        <AnnotationArrow key={`aa${a.from}-${a.to}`} from={a.from} to={a.to} color={ANN_COLORS[a.color]} heights={heights} />
+      ))}
+      {drag && drag.from !== drag.to && (
+        <AnnotationArrow from={drag.from} to={drag.to} color={ANN_COLORS[drag.color]} heights={heights} opacity={0.6} />
+      )}
 
       {quality !== "low" && (
         <ContactShadows position={[0, FLOOR - 0.52, 0]} opacity={0.55} scale={18} blur={2.6} far={4} frames={1} />
@@ -625,7 +732,7 @@ export default function Board3D(props: Board3DProps) {
   const heights = useMemo(() => (low > 0 ? props.heights.map((h) => h - low) : props.heights), [props.heights, low]);
 
   return (
-    <div className={props.className ?? "board3d"}>
+    <div className={props.className ?? "board3d"} onContextMenu={(e) => e.preventDefault()}>
       <div ref={bubbleEl} className="combatBubble floating" aria-hidden={!bubble}>
         {bubble && (
           <>
