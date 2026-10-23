@@ -87,6 +87,10 @@ async def claim() -> str | None:
     async with store.engine.begin() as conn:
         await conn.execute(update(db.analysis_jobs).where(
             j.status == "arena", j.created_at < now - ARENA_WAIT_S).values(status="queued"))
+        waiting = (await conn.execute(select(j.game_id).where(j.status == "arena").limit(1))).first()
+    if waiting:  # bilan chez le runner : relancé s'il ne tourne pas (premier essai raté…)
+        await runner_wake.wake()
+    async with store.engine.begin() as conn:
         return (await conn.execute(text("""
             UPDATE analysis_jobs SET status = 'running', claimed_at = :now
             WHERE game_id = (

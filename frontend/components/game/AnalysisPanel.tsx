@@ -172,7 +172,12 @@ export function AnalysisPanel({
         <p className="muted small">{t.analysis.intro}</p>
         {running ? (
           <div className="progress" aria-live="polite">
-            <div className="progressBar" style={{ width: `${status!.total ? (100 * status!.done) / status!.total : 5}%` }} />
+            {status!.byArena ? (
+              // Le runner ne rend pas d'avancement coup par coup : barre « en cours ».
+              <div className="progressBar indeterminate" />
+            ) : (
+              <div className="progressBar" style={{ width: `${status!.total ? (100 * status!.done) / status!.total : 5}%` }} />
+            )}
             <span>
               {status!.byArena
                 ? t.analysis.byArena

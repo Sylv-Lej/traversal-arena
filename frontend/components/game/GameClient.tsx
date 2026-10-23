@@ -616,6 +616,12 @@ export function GameClient({ id }: { id: string }) {
             {botThinking && <span className="spinner" />}
             {status}
           </div>
+          {review.running && (
+            <div className="statusLine analysing" aria-live="polite">
+              <span className="spinner" />
+              {t.analysis.analysing}
+            </div>
+          )}
           <div className="mobileMoves">
             <button className="iconBtn" onClick={() => goto((viewPly ?? moveCount) - 1)} aria-label={t.game.nav.prev}>
               <IconPrev size={18} />
@@ -658,6 +664,7 @@ export function GameClient({ id }: { id: string }) {
           {finished && (
             <button className={tab === "review" ? "on" : ""} onClick={() => setTab("review")}>
               {t.game.tabs.review}
+              {review.running && <span className="spinner tabSpinner" aria-hidden="true" />}
             </button>
           )}
         </div>
@@ -667,6 +674,12 @@ export function GameClient({ id }: { id: string }) {
           {botThinking && <span className="spinner" />}
           {status}
         </div>
+        {review.running && (
+          <div className="statusLine analysing" aria-live="polite">
+            <span className="spinner" />
+            {t.analysis.analysing}
+          </div>
+        )}
         {tab === "review" && finished ? (
           <>
             <AnalysisPanel

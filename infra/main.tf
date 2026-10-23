@@ -91,6 +91,7 @@ module "backend" {
     ARENA_ANALYSES = "1"
     ARENA_JOB_NAME = "${local.name}-arena"
     SCW_REGION     = var.region
+    SCW_PROJECT_ID = scaleway_container_namespace.main.project_id
   }
   secret_environment_variables = {
     DATABASE_URL   = var.database_url

@@ -150,10 +150,12 @@ Site complet en local : `make dev`, puis `make arena-dev`
    1 défaite) pour qu'un bot invaincu reste fini. Marge à 95 % affichée ; provisoire
    sous 10 parties. Recalculé au plus une fois par minute et à chaque fin de lot.
 
-Les parties sont des parties ordinaires (`games`, mode `arena`). Leur **relecture est
-fermée par défaut** : on voit les résultats (fiche d'un bot), pas les parties — l'API de
-partie répond 404, l'accueil montre un plateau décoratif. `ARENA_REPLAYS=1` (variable
-Terraform `arena_replays`) ouvre relecture, bilan et rejeu sur l'accueil.
+Les parties sont des parties ordinaires (`games`, mode `arena`). Sur le site, leur
+**relecture est ouverte** (`ARENA_REPLAYS=1`, variable Terraform `arena_replays`, vraie
+par défaut dans le Makefile) : chaque partie de l'historique d'un bot s'ouvre, avec son
+bilan, et l'accueil rejoue une partie. Fermée (`arena_replays=false`, et par défaut hors
+du Makefile) : on ne voit que les résultats — l'API de partie répond 404, l'accueil
+montre un plateau décoratif.
 
 ### Bilans de partie
 

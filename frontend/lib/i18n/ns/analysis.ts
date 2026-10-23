@@ -32,6 +32,7 @@ const fr = {
   analysedWith: (bot: string, rating: number | null) =>
     `Analysé avec : ${bot}${rating != null ? ` (${rating})` : ""}, n°1 de l’arène.`,
   analysedWithOrque: "Analysé avec : orque.",
+  analysing: "Analyse de la partie en cours…",
   byArena: "Le n°1 de l’arène analyse la partie… (une à deux minutes)",
   // Import d'une partie de traversalgame.com (page /analyse)
   importTitle: "Analyser une partie",
@@ -73,6 +74,7 @@ const en: typeof fr = {
   analysedWith: (bot: string, rating: number | null) =>
     `Analyzed with: ${bot}${rating != null ? ` (${rating})` : ""}, the arena’s #1.`,
   analysedWithOrque: "Analyzed with: orque.",
+  analysing: "Game analysis in progress…",
   byArena: "The arena’s #1 is analyzing the game… (one to two minutes)",
   importTitle: "Analyze a game",
   importIntro:

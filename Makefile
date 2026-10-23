@@ -44,9 +44,9 @@ TF_VAR_domain = traversal-bot.app
 # Arène seule tant que false. Rouvrir tout le site (sans rebuild, le front relit la
 # variable à chaque requête) : `make apply TF_VAR_full_site=true TAG=<tag actuel>`.
 TF_VAR_full_site ?= false
-# Parties de l'arène consultables (relecture, rejeu sur l'accueil) ; false = résultats seuls.
-# Ouvrir : `make apply TF_VAR_arena_replays=true TAG=<tag actuel>`.
-TF_VAR_arena_replays ?= false
+# Parties de l'arène consultables (relecture et bilan depuis l'historique d'un bot, rejeu
+# sur l'accueil) ; false = résultats seuls : `make apply TF_VAR_arena_replays=false TAG=…`.
+TF_VAR_arena_replays ?= true
 # Emails (mot de passe oublié) et URL publique : à remplir dans .env.deploy quand le
 # domaine est prêt. Passés à Terraform par l'environnement (jamais en ligne de commande).
 TF_VAR_public_url     = $(PUBLIC_URL)
