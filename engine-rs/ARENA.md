@@ -137,6 +137,11 @@ Site complet en local : `make dev`, puis `make arena-dev`
    proche — au plus 40 parties par bot et par 24 h (coût du runner borné). Deux bots du
    même joueur peuvent se rencontrer. Une fois pour toutes, 20 parties entre bots maison
    voisins calent l'échelle.
+   **Toutes les 6 h** (fenêtres fixes, `TOP_UP_GAMES`), le premier passage qui trouve la
+   file vide tire à la place 20 parties de plus pour chaque bot en lice, ronde par ronde
+   (une paire par ronde contre un des 3 adversaires libres les plus proches, bots maison
+   compris), hors plafond quotidien : ≈ 80 parties par bot et par jour, si bien que le
+   plafond de 40 ne laisse l'échelle servir que les bots arrivés entre deux lots.
    **Round-robin**, à la main seulement : `make arena-round-robin GAMES=20` (dev) ou
    `make arena-round-robin-prod` met en file GAMES parties entre chaque paire de bots des
    joueurs en lice (bots maison exclus), ronde par ronde, hors plafond quotidien.
@@ -227,7 +232,7 @@ Autour :
 `make deploy` construit et pousse aussi l'image `traversal-arena`, et crée
 le Job (`*/30 * * * *`, `arena_schedule`). Chaque passage joue jusqu'à vider la file
 (25 min au plus) puis s'arrête : 0 € entre deux passages. Ordre de grandeur : une partie
-≈ 5 s de vCPU, 40 parties par bot et par jour.
+≈ 5 s de vCPU, ~80 parties par bot et par jour (lots de 6 h).
 
 **Changer une règle** : le runner (Rust) et le backend (Python) doivent rester d'accord,
 sinon les parties sont refusées (`partie d'arène … refusée` dans les logs du backend) —

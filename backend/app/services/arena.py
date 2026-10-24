@@ -56,6 +56,8 @@ PLACEMENT_LEVELS = (1, 2, 3, 4, 5)  # une paire de parties contre chaque bot mai
 PROVISIONAL_GAMES = 10
 DAILY_GAMES_PER_BOT = 40  # parties d'échelle par bot et par 24 h (coût du runner borné)
 BATCH_PAIRS = 6  # paires tirées quand la file est vide
+TOP_UP_GAMES = 20  # parties de plus pour chaque bot en lice, toutes les TOP_UP_EVERY_S (hors plafond)
+TOP_UP_EVERY_S = 6 * 3600
 CALIBRATION_GAMES = 20  # parties entre bots maison voisins (une fois) pour caler l'échelle
 NEIGHBOURS = 3  # adversaire tiré parmi les N bots de classement le plus proche
 STALE_CLAIM_S = 300  # tâche d'un runner disparu : remise en file
@@ -393,7 +395,8 @@ async def _analysed(job, body: dict) -> None:
 
 
 async def schedule() -> bool:
-    """File vide : tire un nouveau lot de paires. False s'il n'y a rien à jouer."""
+    """File vide : tire un nouveau lot de paires — le lot de la fenêtre de 6 h s'il n'a pas
+    encore été tiré, sinon l'échelle. False s'il n'y a rien à jouer."""
     since = time.time() - 86400
     async with store.engine.begin() as conn:
         if not (await conn.execute(text(f"SELECT pg_try_advisory_xact_lock({_LOCK_SCHEDULE})"))).scalar():
@@ -406,7 +409,8 @@ async def schedule() -> bool:
             "SELECT p, count(*) FROM (SELECT p1_id AS p FROM games WHERE mode = 'arena' AND ended_at > :s "
             "UNION ALL SELECT p2_id FROM games WHERE mode = 'arena' AND ended_at > :s) t GROUP BY p"),
             {"s": since})).all()}
-        jobs = plan_batch(active, ratings, recent)
+        due = bool(active) and await limits.hit("arena:top-up", 1, TOP_UP_EVERY_S)
+        jobs = plan_top_up(active, ratings) if due else plan_batch(active, ratings, recent)
         jobs += await _calibration(conn)
         if jobs:
             await conn.execute(pg_insert(db.arena_jobs), jobs)
@@ -429,6 +433,27 @@ def plan_batch(active: list[str], ratings: dict[str, float], recent: dict[str, i
         rival = random.choice(others)
         busy.add(b)
         jobs += _pair(b, rival)
+    return jobs
+
+
+def plan_top_up(active: list[str], ratings: dict[str, float], games: int = TOP_UP_GAMES) -> list[dict]:
+    """Toutes les 6 h (fenêtres fixes, tirées par le premier passage du runner qui trouve la
+    file vide) : `games` parties de plus pour chaque bot en lice, hors plafond quotidien.
+    Ronde par ronde, chacun joue une paire de parties contre un des `NEIGHBOURS`
+    adversaires encore libres de classement le plus proche (un bot maison peut servir
+    plusieurs fois dans la ronde)."""
+    jobs = []
+    for _ in range(games // 2):
+        free = set(active)
+        for b in random.sample(active, len(active)):
+            if b not in free:
+                continue
+            free.discard(b)
+            mine = ratings.get(b, PRIOR_RATING)
+            others = sorted([*free, *HOUSE], key=lambda o: abs(ratings.get(o, PRIOR_RATING) - mine))[:NEIGHBOURS]
+            rival = random.choice(others)
+            free.discard(rival)
+            jobs += _pair(b, rival)
     return jobs
 
 

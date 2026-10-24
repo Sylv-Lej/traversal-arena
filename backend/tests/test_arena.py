@@ -228,6 +228,14 @@ def test_a_player_s_bots_can_meet():
     assert {"a1", "a2"} in pairs
 
 
+def test_top_up_gives_every_bot_its_games():
+    active = ["a1", "a2", "b1", "c1", "d1"]
+    ratings = {"a1": 1500, "a2": 1480, "b1": 2400, "c1": 900, "d1": 1700}
+    jobs = arena.plan_top_up(active, ratings)
+    for b in active:  # 5 bots (nombre impair) : chacun ses 20 parties, ni plus ni moins
+        assert sum(b in (job["red_id"], job["blue_id"]) for job in jobs) == arena.TOP_UP_GAMES
+
+
 def test_division_waits_for_placement():
     assert arena.division(None, 0) is None
     assert arena.division(1700, 4)["placement"] == {"played": 4, "total": arena.PROVISIONAL_GAMES}
